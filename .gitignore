@@ -39,3 +39,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+#ECC
+ECC
+
+#Graphify
+graphify-out
+
+#Ide/Agents related files/folders
+.cursor
+.claude
+.agents
+.cursorignore
+.graphifyignore
+skills-lock.json
