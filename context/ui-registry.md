@@ -55,7 +55,7 @@ Brand mark + wordmark, used in Navbar and Footer.
 
 ### CtaButtons — `components/homepage/CtaButtons.tsx`
 
-Reusable pair of marketing CTAs ("Get Started" + "Find Your First Match"). Props: `align?: "start" | "center"`. Both link to `/login` (auth-aware redirect deferred to Feature 02).
+Reusable pair of marketing CTAs ("Get Started" + "Find Your First Match"). Props: `align?: "start" | "center"`. Both use `AuthAwareCta` (Feature 02): `/dashboard` when signed in, else `/login`.
 
 - Container: `flex flex-col gap-3 sm:flex-row` (+ `sm:justify-center` when centered)
 - Primary (dark, per design): `inline-flex items-center justify-center gap-2 rounded-md bg-overlay-dark px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-black` + solid play-triangle SVG (`M8 5v14l11-7z`, 11px, `fill=currentColor`). NOTE: use solid-color hover, never `hover:opacity-*` on dark buttons over a gradient (the gradient bleeds through and looks purplish).
@@ -137,3 +137,20 @@ Bottom gradient CTA, full-bleed within the frame (same gradient technique as Her
 
 - Panel: `px-6 py-20 text-center` + inline layered `radial-gradient`
 - H2: `mx-auto max-w-2xl text-3xl font-bold ... text-text-darkest sm:text-4xl`; reuses `CtaButtons align="center"`
+
+### Login page — `app/(auth)/login/page.tsx`
+
+Client component (built to `context/designs/login-page.png`). Renders `<Navbar />` above a centered split card; keeps the OAuth logic (`useUser()` redirect to `/dashboard` when signed in, `insforge.auth.signInWithOAuth(provider, { redirectTo: <origin>/callback })`, `pending`/`error` state).
+
+- **Auth gate (no form flash):** while `!isLoaded` or `user` is set, render only a centered spinner (same pattern as `AuthGuard`) — never mount the provider buttons for signed-in users. Form renders only when `isLoaded && !user`.
+- **OAuth back-button:** `pageshow` listener clears `pending`/`error` so bfcache restore after abandoning Google/GitHub does not leave buttons stuck on "Redirecting...".
+- Page: `flex min-h-screen flex-col bg-background`; main `flex flex-1 items-center justify-center px-6 py-12`
+- Card: `grid w-full max-w-[760px] overflow-hidden rounded-2xl border border-border bg-surface shadow-[0px_1px_3px_rgba(0,0,0,0.1),0px_1px_2px_-1px_rgba(0,0,0,0.1)] md:grid-cols-2`
+- Left (gradient) panel: `flex flex-col justify-center p-8 md:p-10` + inline `radial-gradient(... var(--color-accent-light) ...)` over `linear-gradient(135deg, var(--color-accent-muted), var(--color-surface) 70%)`
+  - Badge pill: `inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-text-secondary` + shield-check SVG (`text-accent`)
+  - H1: `mt-6 text-4xl font-bold leading-[1.1] text-text-primary`; sub `mt-5 max-w-sm text-sm leading-relaxed text-text-secondary`; footnote `mt-8 text-xs text-text-muted`
+- Right (white) panel: `flex flex-col justify-center border-t border-border p-8 md:border-l md:border-t-0 md:p-10` (divider: top border stacked → left border on `md`)
+  - Eyebrow `text-xs text-text-muted` ("Welcome to"); H2 `mt-1 text-2xl font-bold text-text-primary`; sub `mt-2 text-sm text-text-secondary`
+- Provider buttons (secondary, per design — NOT dark): `inline-flex w-full items-center justify-center gap-3 rounded-md border border-border bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-surface-secondary disabled:cursor-not-allowed disabled:opacity-70`
+  - Icons are official brand marks (fixed brand hex is an intentional exception to the no-raw-hex rule): Google 4-color `G` (viewBox `0 0 48 48`); GitHub mark (`fill="currentColor"` → inherits `text-text-primary`)
+- Error: `mt-4 text-sm text-error`
