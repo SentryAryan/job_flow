@@ -192,18 +192,20 @@ export async function discoverJobs(
 
 ## InsForge Client Usage
 
+InsForge's SDK is `@insforge/sdk` (browser-first). There is no `@insforge/ssr` package.
+
 ```typescript
-// Browser context — Client Components only
+// Client Components — shared browser client
 import { insforge } from "@/lib/insforge-client";
 
-// Server context — Server Components, Route Handlers, Server Actions, Agent
-import { createInsforgeServer } from "@/lib/insforge-server";
-const insforge = await createInsforgeServer();
+// React auth state — custom context
+import { useUser } from "@/components/auth/AuthProvider";
+const { user, isLoaded } = useUser();
 ```
 
-- Never use the browser client in server context
-- Never use the server client in browser context
-- Always await createInsforgeServer() — it reads cookies asynchronously
+- Read auth state through `useUser()` — never call `getCurrentUser()` directly in components
+- Route protection is client-side via `AuthGuard` — there is no `middleware.ts`
+- Server-side InsForge access (Server Actions / API routes) is undecided — resolve in Feature 06 before writing user-scoped rows
 - Always scope every query to the current user_id — never query without a user filter
 
 ---
@@ -305,7 +307,7 @@ Never install a new package without a clear reason. Before installing anything c
 
 Approved dependencies for this project:
 
-- `@insforge/ssr` — InsForge client
+- `@insforge/sdk` — InsForge client (browser-first)
 - `@browserbasehq/sdk` — Browserbase sessions
 - `@browserbasehq/stagehand` — AI browser control
 - `openai` — GPT-4o API

@@ -2,7 +2,7 @@ import Logo from "@/components/layout/Logo";
 import Link from "next/link";
 
 const FOOTER_LINKS = [
-  { label: "About", href: "/about" },
+  { label: "Dashboard", href: "/dashboard" },
   { label: "Privacy Policy", href: "/privacy" },
   { label: "Terms & Conditions", href: "/terms" },
 ];
