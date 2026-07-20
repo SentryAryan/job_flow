@@ -1,6 +1,8 @@
 import Logo from "@/components/layout/Logo";
 import Link from "next/link";
 
+import { AuthAwareCta } from "@/components/auth/AuthAwareCta";
+
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Find Jobs", href: "/find-jobs" },
@@ -25,12 +27,9 @@ export default function Navbar() {
           ))}
         </nav>
 
-        <Link
-          href="/login"
-          className="inline-flex items-center rounded-md bg-overlay-dark px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-black"
-        >
+        <AuthAwareCta className="inline-flex items-center rounded-md bg-overlay-dark px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-black">
           Start for free
-        </Link>
+        </AuthAwareCta>
       </div>
     </header>
   );

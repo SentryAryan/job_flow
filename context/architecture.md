@@ -289,51 +289,41 @@ Access: authenticated users only, own files only.
 
 ## Authentication
 
-- Provider: InsForge Auth
-- Methods: Google OAuth, GitHub OAuth
-- Protected routes: /dashboard, /profile, /find-jobs, /find-jobs/[id]
-- Public routes: /, /login
-- Middleware in middleware.ts checks session on every protected route
+- SDK: `@insforge/sdk` (browser-first). There is no `@insforge/ssr` package.
+- Methods: Google OAuth, GitHub OAuth — configured in the InsForge dashboard.
+- Session: the SDK holds the access token in memory and a httpOnly refresh cookie; `auth.getCurrentUser()` rehydrates the session on load (survives reloads).
+- Client auth state: `AuthProvider` (`components/auth/AuthProvider.tsx`) wraps the app via `app/providers.tsx` and exposes `useUser()` → `{ user, isLoaded, signOut }`.
+- OAuth flow: the login page calls `auth.signInWithOAuth(provider, { redirectTo: <origin>/callback })`; the SDK auto-detects `insforge_code` on `/callback` and exchanges it; `/callback` then redirects to `/dashboard`.
+- Protected routes: /dashboard, /profile, /find-jobs, /find-jobs/[id] — guarded client-side with `AuthGuard` (`components/auth/AuthGuard.tsx`) using `useUser()`, which redirects to `/login` when unauthenticated. There is no `middleware.ts`.
+- Public routes: /, /login, /callback
 - On login → redirect to /dashboard
 
 ---
 
 ## InsForge Client Pattern
 
-Two separate InsForge instances — never mix them:
+Browser-first SDK — a single `createClient` instance shared across the app:
 
 ```typescript
 // lib/insforge-client.ts
-// Browser-side — used in client components for auth state
-import { createBrowserClient } from "@insforge/ssr";
-export const insforge = createBrowserClient(
-  process.env.NEXT_PUBLIC_INSFORGE_URL!,
-  process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY!,
-);
+import { createClient } from "@insforge/sdk";
 
-// lib/insforge-server.ts
-// Server-side — used in API routes, Server Actions, agent code
-import { createServerClient } from "@insforge/ssr";
-import { cookies } from "next/headers";
-
-export const createInsforgeServer = async () => {
-  const cookieStore = await cookies();
-  return createServerClient(
-    process.env.NEXT_PUBLIC_INSFORGE_URL!,
-    process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (cookiesToSet) => {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options),
-          );
-        },
-      },
-    },
-  );
-};
+export const insforge = createClient({
+  baseUrl: process.env.NEXT_PUBLIC_INSFORGE_URL!,
+  anonKey: process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY!,
+});
 ```
+
+React auth state is exposed through a custom context (there is no `@insforge/react`; that package is deprecated):
+
+```typescript
+// components/auth/AuthProvider.tsx — exposes useUser(): { user, isLoaded, signOut }
+// app/providers.tsx — wraps the app in <AuthProvider> (the client boundary in the root layout)
+```
+
+Database access is `insforge.database.from("table")...` (not `insforge.from(...)`).
+
+Server-side InsForge access (Server Actions / API routes writing user-scoped rows) is not defined yet — the browser-first SDK has no `createServerClient` cookie helper. This is decided in Feature 06 (Profile Save); the SDK ships `@insforge/sdk/ssr` helpers that may be used then.
 
 ---
 

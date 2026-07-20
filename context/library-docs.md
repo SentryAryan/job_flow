@@ -30,68 +30,57 @@ Never rely on general training knowledge alone for library APIs — they change 
 
 **Check first:** Check AGENTS.md for an installed InsForge skill. If an InsForge MCP server is configured — use it. The skill/MCP will have the latest API patterns.
 
-### Client vs Server
+### Client (browser-first)
 
-Two separate instances — never mix them:
-
-```typescript
-// lib/insforge-client.ts — browser context only
-import { createBrowserClient } from "@insforge/ssr";
-
-export const insforge = createBrowserClient(
-  process.env.NEXT_PUBLIC_INSFORGE_URL!,
-  process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY!,
-);
-```
+`@insforge/ssr` does not exist. Use the real `@insforge/sdk` browser client — a single shared instance:
 
 ```typescript
-// lib/insforge-server.ts — server context only
-import { createServerClient } from "@insforge/ssr";
-import { cookies } from "next/headers";
+// lib/insforge-client.ts
+import { createClient } from "@insforge/sdk";
 
-export const createInsforgeServer = async () => {
-  const cookieStore = await cookies();
-  return createServerClient(
-    process.env.NEXT_PUBLIC_INSFORGE_URL!,
-    process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (cookiesToSet) => {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options),
-          );
-        },
-      },
-    },
-  );
-};
+export const insforge = createClient({
+  baseUrl: process.env.NEXT_PUBLIC_INSFORGE_URL!,
+  anonKey: process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY!,
+});
 ```
+
+The SDK keeps the access token in memory plus a httpOnly refresh cookie, so the session survives reloads via `auth.getCurrentUser()`.
 
 **Rules:**
 
-- Browser client — Client Components, browser-side auth state, realtime subscriptions
-- Server client — Server Components, API routes, Server Actions, agent functions
-- Never use browser client in server context
-- Never use server client in browser context
+- Import the browser client from `@/lib/insforge-client` in Client Components.
+- Server-side InsForge access (Server Actions / API routes) is not defined yet — there is no `createServerClient` cookie helper. Decide this in Feature 06 (Profile Save); `@insforge/sdk/ssr` helpers exist if needed.
 
 ---
 
 ### Auth
 
+Browser-first. React auth state comes from a custom context (`components/auth/AuthProvider.tsx`) exposing `useUser(): { user, isLoaded, signOut }`. `@insforge/react` is deprecated and not used.
+
 ```typescript
-// Get current user in server context
-const insforge = await createInsforgeServer();
-const {
-  data: { user },
-  error,
-} = await insforge.auth.getUser();
-if (!user) redirect("/login");
+// OAuth sign in (client)
+await insforge.auth.signInWithOAuth("google", {
+  redirectTo: `${window.location.origin}/callback`,
+});
+
+// Current user — hydration + automatic OAuth code exchange
+const { data, error } = await insforge.auth.getCurrentUser();
+const user = data?.user ?? null;
+
+// Sign out
+await insforge.auth.signOut();
+
+// React state inside any Client Component
+const { user, isLoaded } = useUser();
 ```
+
+Route protection is client-side via `AuthGuard` (`components/auth/AuthGuard.tsx`) — there is no middleware.
 
 ---
 
 ### DB Queries
+
+> Note: predates the real SDK — to be corrected in Features 06+. The real accessor is `insforge.database.from("table")...` (not `insforge.from(...)`). The PostgREST filters/modifiers shown (`.select`, `.eq`, `.order`, `.range`, `.single`) are accurate.
 
 ```typescript
 // Read
@@ -125,6 +114,8 @@ const { error } = await insforge
 ---
 
 ### Storage
+
+> Note: predates the real SDK — to be corrected in Features 06-08. Real API: `insforge.storage.from("resumes").upload(path, file)` returns `{ data, error }` (no options object); get a link via `getPublicUrl(path)` or `createSignedUrl(path, expiresIn)`. Buckets are created with the InsForge MCP tools.
 
 ```typescript
 // Upload file
