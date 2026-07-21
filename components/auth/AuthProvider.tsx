@@ -3,6 +3,7 @@
 import type { UserSchema } from "@insforge/sdk";
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useState } from "react";
+import posthog from "posthog-js";
 
 import { insforge } from "@/lib/insforge-client";
 
@@ -28,8 +29,12 @@ export function AuthProvider({ children }: Props) {
     const load = async (): Promise<void> => {
       const { data, error } = await insforge.auth.getCurrentUser();
       if (!active) return;
-      setUser(error ? null : (data?.user ?? null));
+      const resolvedUser = error ? null : (data?.user ?? null);
+      setUser(resolvedUser);
       setIsLoaded(true);
+      if (resolvedUser) {
+        posthog.identify(resolvedUser.id, { email: resolvedUser.email });
+      }
     };
 
     void load();

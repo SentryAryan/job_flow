@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import posthog from "posthog-js";
 
 import { useUser } from "@/components/auth/AuthProvider";
 
@@ -11,6 +12,9 @@ export default function CallbackPage() {
 
   useEffect(() => {
     if (!isLoaded) return;
+    if (user) {
+      posthog.capture("user_signed_in", { provider: "oauth" });
+    }
     router.replace(user ? "/dashboard" : "/login");
   }, [isLoaded, user, router]);
 

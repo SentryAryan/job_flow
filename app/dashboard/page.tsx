@@ -3,12 +3,19 @@
 // Temporary placeholder for Feature 02 (Auth) verification.
 // Replaced by the full dashboard UI in Feature 14.
 
+import posthog from "posthog-js";
+import { useEffect } from "react";
+
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useUser } from "@/components/auth/AuthProvider";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 
 function DashboardContent() {
   const { user } = useUser();
+
+  useEffect(() => {
+    posthog.capture("dashboard_viewed");
+  }, []);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-6 text-center">

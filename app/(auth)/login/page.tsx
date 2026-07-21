@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import posthog from "posthog-js";
 
 import { useUser } from "@/components/auth/AuthProvider";
 import Navbar from "@/components/layout/Navbar";
@@ -106,12 +107,14 @@ export default function LoginPage() {
   const signIn = async (provider: Provider): Promise<void> => {
     setError(null);
     setPending(provider);
+    posthog.capture("sign_in_started", { provider });
     const { error: oauthError } = await insforge.auth.signInWithOAuth(provider, {
       redirectTo: `${window.location.origin}/callback`,
     });
     if (oauthError) {
       setPending(null);
       setError("Something went wrong starting sign in. Please try again.");
+      posthog.capture("sign_in_failed", { provider });
     }
   };
 
