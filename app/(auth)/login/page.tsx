@@ -5,9 +5,12 @@ import { useEffect, useState } from "react";
 
 import { useUser } from "@/components/auth/AuthProvider";
 import Navbar from "@/components/layout/Navbar";
+import {
+    captureEvent,
+    setPendingOAuthProvider,
+    type OAuthProvider,
+} from "@/lib/analytics";
 import { insforge } from "@/lib/insforge-client";
-
-type Provider = "google" | "github";
 
 function GoogleIcon() {
   return (
@@ -81,7 +84,7 @@ function AuthLoadingScreen() {
 export default function LoginPage() {
   const router = useRouter();
   const { user, isLoaded } = useUser();
-  const [pending, setPending] = useState<Provider | null>(null);
+  const [pending, setPending] = useState<OAuthProvider | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Redirect signed-in users away from /login (never render interactive form for them).
@@ -103,15 +106,18 @@ export default function LoginPage() {
     return () => window.removeEventListener("pageshow", resetOAuthUi);
   }, []);
 
-  const signIn = async (provider: Provider): Promise<void> => {
+  const signIn = async (provider: OAuthProvider): Promise<void> => {
     setError(null);
     setPending(provider);
+    setPendingOAuthProvider(provider);
+    captureEvent("sign_in_started", { provider });
     const { error: oauthError } = await insforge.auth.signInWithOAuth(provider, {
       redirectTo: `${window.location.origin}/callback`,
     });
     if (oauthError) {
       setPending(null);
       setError("Something went wrong starting sign in. Please try again.");
+      captureEvent("sign_in_failed", { provider });
     }
   };
 

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { useUser } from "@/components/auth/AuthProvider";
+import { captureEvent, resetAnalytics } from "@/lib/analytics";
 
 export function SignOutButton() {
   const router = useRouter();
@@ -12,6 +13,8 @@ export function SignOutButton() {
 
   const handleSignOut = async (): Promise<void> => {
     setPending(true);
+    captureEvent("user_signed_out");
+    resetAnalytics();
     await signOut();
     router.replace("/");
   };
