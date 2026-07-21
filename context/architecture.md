@@ -279,11 +279,11 @@ URL saved to profiles table
 
 ## InsForge Storage
 
-| Bucket  | Path                         | Contents                  |
-| ------- | ---------------------------- | ------------------------- |
-| resumes | resumes/{user_id}/resume.pdf | Current active resume PDF |
+| Bucket  | Object key              | Contents                  |
+| ------- | ----------------------- | ------------------------- |
+| resumes | `{user_id}/resume.pdf`  | Current active resume PDF |
 
-Access: authenticated users only, own files only.
+Access: authenticated users only, own files only. RLS on `storage.objects` requires the first path segment to equal `auth.uid()` — do not prefix the key with the bucket name.
 
 ---
 
@@ -323,7 +323,7 @@ React auth state is exposed through a custom context (there is no `@insforge/rea
 
 Database access is `insforge.database.from("table")...` (not `insforge.from(...)`).
 
-Server-side InsForge access (Server Actions / API routes writing user-scoped rows) is not defined yet — the browser-first SDK has no `createServerClient` cookie helper. This is decided in Feature 06 (Profile Save); the SDK ships `@insforge/sdk/ssr` helpers that may be used then.
+Server-side InsForge access (Server Actions / API routes writing user-scoped rows) is not defined yet — the browser-first SDK has no `createServerClient` cookie helper. **Feature 06 decision:** use `@insforge/sdk/ssr` (or equivalent) to forward the user JWT on server writes so RLS policies (`auth.uid()`) still apply. Agent API routes (Feature 10) must use the same pattern — never bypass RLS with a shared anon client for multi-table agent inserts.
 
 ---
 

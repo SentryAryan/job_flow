@@ -205,7 +205,7 @@ const { user, isLoaded } = useUser();
 
 - Read auth state through `useUser()` — never call `getCurrentUser()` directly in components
 - Route protection is client-side via `AuthGuard` — there is no `middleware.ts`
-- Server-side InsForge access (Server Actions / API routes) is undecided — resolve in Feature 06 before writing user-scoped rows
+- Server-side InsForge access (Server Actions / API routes) — Feature 06 uses `@insforge/sdk/ssr` (or JWT forwarding) so RLS still scopes writes to `auth.uid()`; agent API routes (Feature 10) use the same pattern
 - Always scope every query to the current user_id — never query without a user filter
 
 ---
