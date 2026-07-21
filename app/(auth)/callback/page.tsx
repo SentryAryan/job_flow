@@ -1,17 +1,37 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { useUser } from "@/components/auth/AuthProvider";
+import { captureEvent, consumePendingOAuthProvider } from "@/lib/analytics";
 
 export default function CallbackPage() {
   const router = useRouter();
   const { user, isLoaded } = useUser();
+  const capturedRef = useRef(false);
 
   useEffect(() => {
     if (!isLoaded) return;
-    router.replace(user ? "/dashboard" : "/login");
+
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const isOAuthReturn = params.has("insforge_code");
+
+    if (isOAuthReturn && !capturedRef.current) {
+      capturedRef.current = true;
+      const provider = consumePendingOAuthProvider();
+      captureEvent(
+        "user_signed_in",
+        provider ? { provider } : undefined,
+      );
+    }
+
+    router.replace("/dashboard");
   }, [isLoaded, user, router]);
 
   return (
