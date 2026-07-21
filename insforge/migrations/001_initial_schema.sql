@@ -146,7 +146,10 @@ SET search_path = public
 AS $$
 BEGIN
   INSERT INTO public.profiles (id, email, is_complete)
-  VALUES (NEW.id, NEW.email, false);
+  VALUES (NEW.id, NEW.email, false)
+  ON CONFLICT (id) DO UPDATE
+    SET email = EXCLUDED.email
+    WHERE profiles.email IS DISTINCT FROM EXCLUDED.email;
   RETURN NEW;
 END;
 $$;

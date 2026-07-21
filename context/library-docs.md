@@ -115,33 +115,31 @@ const { error } = await insforge
 
 ### Storage
 
-> Note: predates the real SDK — to be corrected in Features 06-08. Real API: `insforge.storage.from("resumes").upload(path, file)` returns `{ data, error }` (no options object); get a link via `getPublicUrl(path)` or `createSignedUrl(path, expiresIn)`. Buckets are created with the InsForge MCP tools.
+> Real API: `insforge.storage.from("resumes").upload(path, file)` returns `{ data, error }` with `data.url` and `data.key`. The `resumes` bucket is **private** — use authenticated download or a signed URL, not a public URL. Buckets are created with InsForge MCP tools.
 
 ```typescript
-// Upload file
+// Upload — object key MUST be `{userId}/resume.pdf` (RLS enforces first folder = auth.uid())
 const { data, error } = await insforge.storage
   .from("resumes")
-  .upload(`${userId}/resume.pdf`, fileBuffer, {
-    contentType: "application/pdf",
-    upsert: true, // overwrites existing file
-  });
+  .upload(`${userId}/resume.pdf`, file);
 
-// Get public URL
-const { data } = insforge.storage
-  .from("resumes")
-  .getPublicUrl(`${userId}/resume.pdf`);
-
-const url = data.publicUrl;
+// Persist URL (and key) on profiles after upload
+await insforge.database
+  .from("profiles")
+  .update({ resume_pdf_url: data?.url ?? null })
+  .eq("id", userId);
 ```
 
 **Storage paths:**
 
-- Base resume: `resumes/{user_id}/resume.pdf`
+- Bucket: `resumes`
+- Object key: `{user_id}/resume.pdf` (do **not** use `resumes/{user_id}/resume.pdf` as the key)
 
 **Rules:**
 
-- Always use `upsert: true` for base resume uploads — overwrites existing file
-- Always save the public URL back to the DB after upload
+- Always upload to the same key `{user_id}/resume.pdf` so replacements overwrite logically
+- Never use `uploadAuto()` — auto keys fail storage RLS
+- Always save `data.url` (and prefer `data.key` when download/delete is needed) back to the DB after upload
 - Never write files to disk — always upload buffer directly to storage
 
 ---
@@ -626,13 +624,10 @@ const ResumePDF = ({ profile }: { profile: Profile }) => (
 // Generate buffer
 const buffer = await renderToBuffer(<ResumePDF profile={profile} />)
 
-// Upload directly to InsForge Storage
+// Upload directly to InsForge Storage (private bucket — same key every time)
 await insforge.storage
   .from('resumes')
-  .upload(`${userId}/resume.pdf`, buffer, {
-    contentType: 'application/pdf',
-    upsert: true
-  })
+  .upload(`${userId}/resume.pdf`, buffer)
 ```
 
 **Supported CSS properties:**

@@ -26,7 +26,7 @@ export type Profile = {
   skills: string[];
   industries: string[];
   work_experience: WorkExperienceRole[];
-  education: Education;
+  education: Partial<Education>;
   job_titles_seeking: string[];
   remote_preference: string | null;
   preferred_locations: string[];
