@@ -1,10 +1,6 @@
-"use client";
-
-import posthog from "posthog-js";
 import Logo from "@/components/layout/Logo";
+import { NavbarCta } from "@/components/layout/NavbarCta";
 import Link from "next/link";
-
-import { AuthAwareCta } from "@/components/auth/AuthAwareCta";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard" },
@@ -30,12 +26,7 @@ export default function Navbar() {
           ))}
         </nav>
 
-        <AuthAwareCta
-          className="inline-flex items-center rounded-md bg-overlay-dark px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-black"
-          onClick={() => posthog.capture("navbar_cta_clicked")}
-        >
-          Start for free
-        </AuthAwareCta>
+        <NavbarCta />
       </div>
     </header>
   );

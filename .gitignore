@@ -55,4 +55,3 @@ graphify-out
 .graphifyignore
 skills-lock.json
 node_modules
-.env.local

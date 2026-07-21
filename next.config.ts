@@ -1,19 +1,24 @@
 import type { NextConfig } from "next";
 
+import { getPostHogAssetsHost, getPostHogHost } from "./lib/posthog-config";
+
+const posthogHost = getPostHogHost();
+const posthogAssetsHost = getPostHogAssetsHost();
+
 const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
         source: "/ingest/static/:path*",
-        destination: "https://us-assets.i.posthog.com/static/:path*",
+        destination: `${posthogAssetsHost}/static/:path*`,
       },
       {
         source: "/ingest/array/:path*",
-        destination: "https://us-assets.i.posthog.com/array/:path*",
+        destination: `${posthogAssetsHost}/array/:path*`,
       },
       {
         source: "/ingest/:path*",
-        destination: "https://us.i.posthog.com/:path*",
+        destination: `${posthogHost}/:path*`,
       },
     ];
   },

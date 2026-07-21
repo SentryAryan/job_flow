@@ -3,8 +3,8 @@
 import type { UserSchema } from "@insforge/sdk";
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useState } from "react";
-import posthog from "posthog-js";
 
+import { identifyUser } from "@/lib/analytics";
 import { insforge } from "@/lib/insforge-client";
 
 type AuthContextValue = {
@@ -33,7 +33,7 @@ export function AuthProvider({ children }: Props) {
       setUser(resolvedUser);
       setIsLoaded(true);
       if (resolvedUser) {
-        posthog.identify(resolvedUser.id, { email: resolvedUser.email });
+        identifyUser(resolvedUser.id, { email: resolvedUser.email });
       }
     };
 
