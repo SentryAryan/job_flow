@@ -6,9 +6,9 @@ Update this file after every completed feature. Any AI agent reading this should
 
 ## Current Status
 
-**Phase:** Phase 1 — Foundation
-**Last completed:** 04 Database Schema
-**Next:** 05 Profile Page — Full UI
+**Phase:** Phase 2 — Profile Page
+**Last completed:** 05 Profile Page — Full UI
+**Next:** 06 Profile Save Logic
 
 ---
 
@@ -23,7 +23,7 @@ Update this file after every completed feature. Any AI agent reading this should
 
 ### Phase 2 — Profile Page
 
-- [ ] 05 Profile Page — Full UI
+- [x] 05 Profile Page — Full UI
 - [ ] 06 Profile Save Logic
 - [ ] 07 AI Profile Extraction from Resume
 - [ ] 08 Resume PDF Generation from Profile
@@ -79,6 +79,12 @@ Update this file after every completed feature. Any AI agent reading this should
 - **04 Database Schema — follow-up (002)** — `002_harden_schema.sql` hardens signup trigger with `ON CONFLICT`, backfills profiles for pre-trigger auth users. Bootstrap docs in `insforge/migrations/README.md`.
 - **04 Database Schema — server writes** — Feature 06 will use `@insforge/sdk/ssr` (or JWT-forwarding) so RLS continues to scope server/agent writes to `auth.uid()`.
 - **04 Database Schema — storage docs aligned** — `architecture.md` / `build-plan.md` / `library-docs.md` now use bucket `resumes` + key `{user_id}/resume.pdf` (matches storage RLS).
+- **05 Profile Page — UI only** — Built to `context/designs/profile.png` with mock data + local React state. No InsForge save/upload (Feature 06). Save / Select Resume / Generate buttons are visual stubs.
+- **05 Profile Page — AppNavbar** — App shell uses `AppNavbar` (logo + Dashboard / Find Jobs / Profile). Active link uses accent color + purple underline (design override of ui-rules “no underline”). Marketing `Navbar` unchanged.
+- **05 Profile Page — Cover Letter Tone omitted** — Field exists on `Profile` type / DB but is not shown in the PNG; deferred to Feature 06 wiring.
+- **05 Profile Page — Email read-only** — Disabled input; auth-owned. Job titles seeking / preferred locations are free-text comma fields in the UI (arrays on save later).
+- **05 Profile Page — UI primitives** — Lightweight token-based `components/ui/*` (Button, Input, Select, Textarea, Label, Card, Tag). shadcn not installed yet.
+- **05 Profile Page — Completion** — `lib/profile-completion.ts` computes % + missing tags. Mock profile yields 70% with PHONE / LOCATION / EDUCATION missing.
 
 ---
 

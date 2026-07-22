@@ -154,3 +154,43 @@ Client component (built to `context/designs/login-page.png`). Renders `<Navbar /
 - Provider buttons (secondary, per design — NOT dark): `inline-flex w-full items-center justify-center gap-3 rounded-md border border-border bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-surface-secondary disabled:cursor-not-allowed disabled:opacity-70`
   - Icons are official brand marks (fixed brand hex is an intentional exception to the no-raw-hex rule): Google 4-color `G` (viewBox `0 0 48 48`); GitHub mark (`fill="currentColor"` → inherits `text-text-primary`)
 - Error: `mt-4 text-sm text-error`
+
+### AppNavbar — `components/layout/AppNavbar.tsx`
+
+Authenticated app chrome (Profile / Dashboard / Find Jobs). Distinct from marketing `Navbar` (no “Start for free”).
+
+- Header: `w-full border-b border-border bg-surface`
+- Inner: `mx-auto flex h-16 max-w-6xl items-center justify-between px-6`
+- Logo links to `/dashboard`
+- Nav links: `border-b-2 pb-0.5 text-sm font-medium` — active `border-accent text-accent`; inactive `border-transparent text-text-dark hover:text-accent`
+
+### UI primitives — `components/ui/`
+
+Token-based form primitives (Feature 05). Index barrel allowed only here.
+
+- **Button** — `rounded-md px-4 py-2 text-sm font-medium`; primary `border border-accent-dark border-b-[3px] border-b-accent-dark bg-accent text-accent-foreground hover:bg-accent-dark`; secondary `border border-border border-b-2 border-b-border-muted bg-surface text-text-primary hover:bg-surface-secondary`; muted (Add) `bg-surface-secondary hover:bg-surface-tertiary` with same elevated gray border
+- **Input / Select / Textarea** — `w-full rounded-md border border-border border-b-2 border-b-border-muted px-3 py-2 text-sm text-text-primary` + filled `bg-surface-secondary` / empty `bg-surface` + `focus:border-accent focus:border-b-accent focus:ring-1 focus:ring-accent`; disabled `bg-surface-secondary text-text-secondary`
+- **Label** — `mb-1.5 block text-xs font-semibold uppercase tracking-wide text-text-secondary`
+- **Card** — `rounded-xl border border-border bg-surface p-6 shadow-[var(--shadow-card)]` (`--shadow-card` in `app/globals.css`)
+- **Tag** — `rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-medium text-text-primary` + purple remove ×
+
+### Profile page — `app/profile/page.tsx`
+
+Client page wrapped in `AuthGuard`. Composes `AppNavbar` + completion banner + resume + form. Mock state from `lib/mock-profile.ts`; completion via `lib/profile-completion.ts`.
+
+- Shell: `min-h-screen bg-background`
+- Main: `mx-auto flex max-w-3xl flex-col gap-6 px-6 py-8 sm:px-8`
+
+### CompletionBanner — `components/profile/CompletionBanner.tsx`
+
+Alert card when `missing.length > 0`. Red warning icon, title, body, uppercase missing tags (`text-xs font-semibold uppercase tracking-wide text-error`), SVG progress ring (`stroke-error`, percent centered).
+
+- Card: same Card primitive + `border-error/40`; layout `flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between`
+
+### ResumeUpload — `components/profile/ResumeUpload.tsx`
+
+Resume card: title + description; dashed dropzone (`border-dashed border-border-muted bg-accent-muted/40`) with purple cloud-upload icon; Select Resume (secondary stub); Generate Resume from Profile (primary stub with document icon).
+
+### ProfileForm — `components/profile/ProfileForm.tsx`
+
+Orchestrates sections with `border-t border-border` dividers; full-width Save Profile submit (no-op network). Sections: `PersonalInfoSection`, `ProfessionalInfoSection` (+ `TagInput`), `WorkExperienceSection` (max 3, “+ Add role”, role blocks use `bg-surface-secondary`), `EducationSection`, `JobPreferencesSection`.
