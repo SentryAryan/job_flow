@@ -114,25 +114,25 @@
 | ------------- | ------------------------------------------------------------------------------------------------------ |
 | `app/`        | Pages and API routes only. No business logic.                                                          |
 | `agent/`      | All agent logic. Adzuna discovery, company research, matching, extraction. Nothing here touches React. |
-| `actions/`    | Server Actions for UI-triggered mutations only. Profile save, profile update.                          |
-| `components/` | UI only. No data fetching logic. No direct DB calls.                                                   |
-| `lib/`        | Third party client initialisation and shared utilities only.                                           |
+| `actions/`    | Reserved for future Server Actions (not used for Feature 06 profile).                                  |
+| `components/` | UI only. Profile page may call `lib/profile.ts` helpers from Client Components.                        |
+| `lib/`        | Third party clients, shared utilities, and browser profile API (`lib/profile.ts`).                     |
 | `types/`      | TypeScript types shared across the project.                                                            |
 
 ---
 
 ## Data Flow
 
-### UI Mutations (Server Actions)
+### UI Mutations (Profile — browser SDK)
 
 ```
-User interaction in component
+User interaction in profile Client Component
         ↓
-Server Action in actions/
+lib/profile.ts (fetchProfile / saveProfile / uploadResume)
         ↓
-InsForge DB write
+Authenticated browser InsForge client (session JWT + RLS)
         ↓
-Revalidate or redirect
+Update React state (no revalidatePath)
 ```
 
 ### Agent Operations (API Routes)
@@ -323,7 +323,7 @@ React auth state is exposed through a custom context (there is no `@insforge/rea
 
 Database access is `insforge.database.from("table")...` (not `insforge.from(...)`).
 
-Server-side InsForge access (Server Actions / API routes writing user-scoped rows) is not defined yet — the browser-first SDK has no `createServerClient` cookie helper. **Feature 06 decision:** use `@insforge/sdk/ssr` (or equivalent) to forward the user JWT on server writes so RLS policies (`auth.uid()`) still apply. Agent API routes (Feature 10) must use the same pattern — never bypass RLS with a shared anon client for multi-table agent inserts.
+Server-side InsForge access for agent API routes is not fully defined yet — the browser-first SDK has no `createServerClient` cookie helper. **Feature 06 decision:** profile mutations use the browser SDK (`lib/profile.ts`) so RLS (`auth.uid()`) applies via the user session. Agent API routes (Feature 10) must use a JWT-forwarding server client — never bypass RLS with a shared anon client for multi-table agent inserts.
 
 ---
 
@@ -410,7 +410,7 @@ Rules the AI agent must never violate:
 - API routes contain no UI logic. Components contain no DB logic.
 - Agent code in `/agent` never imports from `/components` or `/actions`.
 - Server Actions never call agent functions. Agent functions are only called from API routes.
-- All InsForge server-side writes use `createInsforgeServer()` — never the browser client.
+- Profile page mutations use the browser InsForge client via `lib/profile.ts`. Agent/server writes (Feature 10+) must use a JWT-forwarding server client — never bypass RLS with a shared anon client.
 - No hardcoded hex values or raw Tailwind color classes in components — use CSS variables from ui-tokens.md.
 - Every Stagehand action is wrapped in try/catch. Failures are logged to agent_logs, never thrown to crash the run.
 - Company research always returns a dossier — even if browser research fails, GPT-4o synthesizes from company name and job description alone. Never return empty.

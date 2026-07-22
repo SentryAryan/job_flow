@@ -105,6 +105,8 @@ Trend badges on stat cards use `border-radius: 4px` (not pill) with `#ECFDF5` ba
 
 ## Buttons
 
+Always include `cursor-pointer` on clickable buttons and button-like controls; use `disabled:cursor-not-allowed` when disabled.
+
 **Primary button:**
 
 ```

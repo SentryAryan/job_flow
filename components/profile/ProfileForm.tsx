@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { toast } from "sonner";
 
 import { EducationSection } from "@/components/profile/EducationSection";
 import { JobPreferencesSection } from "@/components/profile/JobPreferencesSection";
@@ -9,6 +10,11 @@ import { ProfessionalInfoSection } from "@/components/profile/ProfessionalInfoSe
 import { WorkExperienceSection } from "@/components/profile/WorkExperienceSection";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+    profileToSaveInput,
+    saveProfile,
+    type ProfileSaveInput,
+} from "@/lib/profile";
 import type { Profile } from "@/types";
 
 function splitCommaList(value: string): string[] {
@@ -21,27 +27,54 @@ function splitCommaList(value: string): string[] {
 type ProfileFormProps = {
   profile: Profile;
   onProfileChange: (profile: Profile) => void;
+  onSaved: (profile: Profile, wasAlreadyComplete: boolean) => void;
 };
 
-export function ProfileForm({ profile, onProfileChange }: ProfileFormProps) {
+export function ProfileForm({
+  profile,
+  onProfileChange,
+  onSaved,
+}: ProfileFormProps) {
   const [jobTitlesSeekingText, setJobTitlesSeekingText] = useState(() =>
     profile.job_titles_seeking.join(", "),
   );
   const [preferredLocationsText, setPreferredLocationsText] = useState(() =>
     profile.preferred_locations.join(", "),
   );
+  const [pending, setPending] = useState(false);
 
   function patch(partial: Partial<Profile>) {
     onProfileChange({ ...profile, ...partial });
   }
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    onProfileChange({
+    setPending(true);
+
+    const nextProfile: Profile = {
       ...profile,
       job_titles_seeking: splitCommaList(jobTitlesSeekingText),
       preferred_locations: splitCommaList(preferredLocationsText),
+    };
+    onProfileChange(nextProfile);
+
+    const input: ProfileSaveInput = profileToSaveInput(nextProfile);
+    const wasAlreadyComplete = profile.is_complete;
+    const result = await saveProfile(profile.id, input, {
+      email: nextProfile.email,
+      resume_pdf_url: nextProfile.resume_pdf_url,
+      cover_letter_tone: nextProfile.cover_letter_tone,
     });
+
+    setPending(false);
+
+    if (!result.success) {
+      toast.error(result.error);
+      return;
+    }
+
+    onSaved(result.data, wasAlreadyComplete);
+    toast.success("Profile saved");
   }
 
   return (
@@ -80,8 +113,12 @@ export function ProfileForm({ profile, onProfileChange }: ProfileFormProps) {
           onPreferredLocationsTextChange={setPreferredLocationsText}
         />
 
-        <Button type="submit" className="w-full py-3 text-sm font-medium">
-          Save Profile
+        <Button
+          type="submit"
+          className="w-full py-3 text-sm font-medium"
+          disabled={pending}
+        >
+          {pending ? "Saving..." : "Save Profile"}
         </Button>
       </form>
     </Card>

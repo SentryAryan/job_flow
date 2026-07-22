@@ -16,7 +16,11 @@ export function AuthAwareCta({ className, children, onClick }: Props) {
   const href = isLoaded && user ? "/dashboard" : "/login";
 
   return (
-    <Link href={href} className={className} onClick={onClick}>
+    <Link
+      href={href}
+      className={`cursor-pointer ${className ?? ""}`.trim()}
+      onClick={onClick}
+    >
       {children}
     </Link>
   );

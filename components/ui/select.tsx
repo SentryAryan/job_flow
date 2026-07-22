@@ -26,7 +26,7 @@ export function Select({
     <select
       value={value}
       defaultValue={defaultValue}
-      className={`w-full rounded-md ${FIELD_BORDER} px-3 py-2 text-sm text-text-primary focus:border-accent focus:border-b-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed disabled:bg-surface-secondary disabled:text-text-secondary ${
+      className={`w-full cursor-pointer rounded-md ${FIELD_BORDER} px-3 py-2 text-sm text-text-primary focus:border-accent focus:border-b-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed disabled:bg-surface-secondary disabled:text-text-secondary ${
         filled ? "bg-surface-secondary" : "bg-surface"
       } ${className}`}
       {...props}

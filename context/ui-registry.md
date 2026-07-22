@@ -176,7 +176,7 @@ Token-based form primitives (Feature 05). Index barrel allowed only here.
 
 ### Profile page — `app/profile/page.tsx`
 
-Client page wrapped in `AuthGuard`. Composes `AppNavbar` + completion banner + resume + form. Mock state from `lib/mock-profile.ts`; completion via `lib/profile-completion.ts`.
+Client page wrapped in `AuthGuard`. Loads profile via `fetchProfile` (`lib/profile.ts`); composes `AppNavbar` + completion banner + resume + form. Loading spinner while fetching; error text on failure.
 
 - Shell: `min-h-screen bg-background`
 - Main: `mx-auto flex max-w-3xl flex-col gap-6 px-6 py-8 sm:px-8`
@@ -189,8 +189,12 @@ Alert card when `missing.length > 0`. Red warning icon, title, body, uppercase m
 
 ### ResumeUpload — `components/profile/ResumeUpload.tsx`
 
-Resume card: title + description; dashed dropzone (`border-dashed border-border-muted bg-accent-muted/40`) with purple cloud-upload icon; Select Resume (secondary stub); Generate Resume from Profile (primary stub with document icon).
+Resume card: title + description; dashed dropzone with purple cloud-upload icon; Select Resume opens hidden PDF file input (≤5MB) → `uploadResume`; shows filename / “Resume on file” / errors; Generate Resume stays disabled (Feature 08).
 
 ### ProfileForm — `components/profile/ProfileForm.tsx`
 
-Orchestrates sections with `border-t border-border` dividers; full-width Save Profile submit (no-op network). Sections: `PersonalInfoSection`, `ProfessionalInfoSection` (+ `TagInput`), `WorkExperienceSection` (max 3, “+ Add role”, role blocks use `bg-surface-secondary`), `EducationSection`, `JobPreferencesSection`.
+Orchestrates sections with `border-t border-border` dividers; Save Profile calls `saveProfile`. Success/error feedback via Sonner toasts (`toast.success` / `toast.error`) — no inline status text above the button. Sections: `PersonalInfoSection`, `ProfessionalInfoSection` (+ `TagInput`), `WorkExperienceSection` (max 3, “+ Add role”, role blocks use `bg-surface-secondary`), `EducationSection`, `JobPreferencesSection`.
+
+### Toaster — `components/ui/toaster.tsx`
+
+Sonner host mounted in `app/providers.tsx` (`position="bottom-right"`). Unstyled + token `classNames`; type icons use filled circles — success `bg-success` + white check, error `bg-error` + white ×, warning/info `bg-warning` + white glyph. Use `toast` from `sonner` in Client Components.
