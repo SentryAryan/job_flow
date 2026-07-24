@@ -17,7 +17,13 @@ export default defineConfig({
         "lib/profile.ts",
         "lib/errors.ts",
         "lib/storage-keys.ts",
+        "lib/resume-extract.ts",
+        "lib/api-auth.ts",
+        "lib/ai/provider.ts",
+        "lib/pdf-text.ts",
+        "app/api/resume/extract/route.ts",
         "components/auth/AuthProvider.tsx",
+        "components/profile/ResumeUpload.tsx",
       ],
       thresholds: {
         lines: 80,

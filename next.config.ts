@@ -6,6 +6,7 @@ const posthogHost = getPostHogHost();
 const posthogAssetsHost = getPostHogAssetsHost();
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["pdf-parse"],
   async rewrites() {
     return [
       {

@@ -9,16 +9,26 @@ const {
   mockFetchResumeBlob,
   mockToastSuccess,
   mockToastError,
+  mockGetValidAccessToken,
 } = vi.hoisted(() => ({
   mockUploadResume: vi.fn(),
   mockFetchResumeBlob: vi.fn(),
   mockToastSuccess: vi.fn(),
   mockToastError: vi.fn(),
+  mockGetValidAccessToken: vi.fn(),
 }));
 
 vi.mock("@/lib/profile", () => ({
   uploadResume: mockUploadResume,
   fetchResumeBlob: mockFetchResumeBlob,
+}));
+
+vi.mock("@/lib/insforge-client", () => ({
+  insforge: {
+    getHttpClient: () => ({
+      getValidAccessToken: mockGetValidAccessToken,
+    }),
+  },
 }));
 
 vi.mock("sonner", () => ({
@@ -29,9 +39,28 @@ vi.mock("sonner", () => ({
 }));
 
 import { ResumeUpload } from "@/components/profile/ResumeUpload";
+import type { ProfileExtract } from "@/lib/resume-extract";
+import type { Profile } from "@/types";
 
 const resumeUrl =
   "https://example.insforge.app/api/storage/buckets/resumes/objects/user-1%2Fresume.pdf";
+
+function renderUpload(
+  props: Partial<{
+    resumePdfUrl: string | null;
+    onUploaded: (profile: Profile) => void;
+    onExtracted: (extracted: ProfileExtract) => void;
+  }> = {},
+) {
+  return render(
+    <ResumeUpload
+      userId="user-1"
+      resumePdfUrl={props.resumePdfUrl ?? null}
+      onUploaded={props.onUploaded ?? vi.fn()}
+      onExtracted={props.onExtracted ?? vi.fn()}
+    />,
+  );
+}
 
 describe("ResumeUpload", () => {
   afterEach(() => {
@@ -45,6 +74,7 @@ describe("ResumeUpload", () => {
       success: true,
       data: new Blob(["%PDF"], { type: "application/pdf" }),
     });
+    mockGetValidAccessToken.mockResolvedValue("jwt-token");
   });
 
   it("uploads a selected PDF and toasts success", async () => {
@@ -58,13 +88,7 @@ describe("ResumeUpload", () => {
       },
     });
 
-    const { container } = render(
-      <ResumeUpload
-        userId="user-1"
-        resumePdfUrl={null}
-        onUploaded={onUploaded}
-      />,
-    );
+    const { container } = renderUpload({ onUploaded });
 
     const input = container.querySelector(
       'input[type="file"]',
@@ -88,13 +112,7 @@ describe("ResumeUpload", () => {
       error: "Failed to upload resume",
     });
 
-    const { container } = render(
-      <ResumeUpload
-        userId="user-1"
-        resumePdfUrl={null}
-        onUploaded={vi.fn()}
-      />,
-    );
+    const { container } = renderUpload();
 
     const input = container.querySelector(
       'input[type="file"]',
@@ -116,13 +134,7 @@ describe("ResumeUpload", () => {
       revokeObjectURL,
     });
 
-    render(
-      <ResumeUpload
-        userId="user-1"
-        resumePdfUrl={resumeUrl}
-        onUploaded={vi.fn()}
-      />,
-    );
+    renderUpload({ resumePdfUrl: resumeUrl });
 
     expect(screen.queryByText("Resume on file")).not.toBeInTheDocument();
 
@@ -144,13 +156,7 @@ describe("ResumeUpload", () => {
       revokeObjectURL: vi.fn(),
     });
 
-    render(
-      <ResumeUpload
-        userId="user-1"
-        resumePdfUrl={resumeUrl}
-        onUploaded={vi.fn()}
-      />,
-    );
+    renderUpload({ resumePdfUrl: resumeUrl });
 
     await waitFor(() => {
       expect(screen.getByTitle("Resume preview")).toBeInTheDocument();
@@ -193,13 +199,7 @@ describe("ResumeUpload", () => {
         return originalCreateElement(tagName, options);
       });
 
-    render(
-      <ResumeUpload
-        userId="user-1"
-        resumePdfUrl={resumeUrl}
-        onUploaded={vi.fn()}
-      />,
-    );
+    renderUpload({ resumePdfUrl: resumeUrl });
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Download" })).toBeEnabled();
@@ -214,5 +214,141 @@ describe("ResumeUpload", () => {
     });
 
     createElementSpy.mockRestore();
+  });
+
+  it("hides Extract from Resume when no resume is uploaded", () => {
+    renderUpload({ resumePdfUrl: null });
+    expect(
+      screen.queryByRole("button", { name: "Extract from Resume" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("extracts profile fields when Extract from Resume is clicked", async () => {
+    const user = userEvent.setup();
+    const onExtracted = vi.fn();
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn(() => "blob:mock-resume"),
+      revokeObjectURL: vi.fn(),
+    });
+
+    const extracted = {
+      full_name: "Extracted",
+      phone: null,
+      location: null,
+      current_title: null,
+      experience_level: null,
+      years_experience: null,
+      skills: ["React"],
+      industries: [],
+      work_experience: [],
+      education: {},
+      job_titles_seeking: [],
+      remote_preference: null,
+      preferred_locations: [],
+      salary_expectation: null,
+      linkedin_url: null,
+      portfolio_url: null,
+      work_authorization: null,
+    };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: extracted }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderUpload({ resumePdfUrl: resumeUrl, onExtracted });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Extract from Resume" }),
+      ).toBeEnabled();
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: "Extract from Resume" }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetValidAccessToken).toHaveBeenCalled();
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/resume/extract",
+        expect.objectContaining({
+          method: "POST",
+          headers: { Authorization: "Bearer jwt-token" },
+        }),
+      );
+      expect(onExtracted).toHaveBeenCalledWith(extracted);
+      expect(mockToastSuccess).toHaveBeenCalledWith(
+        "Profile fields filled from resume — review and save",
+      );
+    });
+  });
+
+  it("shows Extracting... while the extract request is in flight", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn(() => "blob:mock-resume"),
+      revokeObjectURL: vi.fn(),
+    });
+
+    let resolveFetch: (value: unknown) => void = () => {};
+    const fetchPromise = new Promise((resolve) => {
+      resolveFetch = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockReturnValue(fetchPromise),
+    );
+
+    renderUpload({ resumePdfUrl: resumeUrl });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Extract from Resume" }),
+      ).toBeEnabled();
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: "Extract from Resume" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Extracting..." }),
+      ).toBeDisabled();
+    });
+
+    resolveFetch({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          full_name: null,
+          phone: null,
+          location: null,
+          current_title: null,
+          experience_level: null,
+          years_experience: null,
+          skills: [],
+          industries: [],
+          work_experience: [],
+          education: {},
+          job_titles_seeking: [],
+          remote_preference: null,
+          preferred_locations: [],
+          salary_expectation: null,
+          linkedin_url: null,
+          portfolio_url: null,
+          work_authorization: null,
+        },
+      }),
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Extract from Resume" }),
+      ).toBeEnabled();
+    });
   });
 });

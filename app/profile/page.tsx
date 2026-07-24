@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { captureEvent } from "@/lib/analytics";
 import { fetchProfile } from "@/lib/profile";
 import { getProfileCompletion } from "@/lib/profile-completion";
+import { mergeExtractedIntoProfile } from "@/lib/resume-extract";
 import type { Profile } from "@/types";
 
 function ProfileLoading() {
@@ -113,6 +114,13 @@ function ProfilePageContent() {
               userId={profile.id}
               resumePdfUrl={profile.resume_pdf_url}
               onUploaded={setProfile}
+              onExtracted={(extracted) => {
+                setProfile((current) =>
+                  current
+                    ? mergeExtractedIntoProfile(current, extracted)
+                    : current,
+                );
+              }}
             />
             <ProfileForm
               profile={profile}
