@@ -7,8 +7,8 @@ Update this file after every completed feature. Any AI agent reading this should
 ## Current Status
 
 **Phase:** Phase 2 — Profile Page
-**Last completed:** 05 Profile Page — Full UI
-**Next:** 06 Profile Save Logic
+**Last completed:** 06 Profile Save Logic
+**Next:** 07 AI Profile Extraction from Resume
 
 ---
 
@@ -24,7 +24,7 @@ Update this file after every completed feature. Any AI agent reading this should
 ### Phase 2 — Profile Page
 
 - [x] 05 Profile Page — Full UI
-- [ ] 06 Profile Save Logic
+- [x] 06 Profile Save Logic
 - [ ] 07 AI Profile Extraction from Resume
 - [ ] 08 Resume PDF Generation from Profile
 
@@ -67,7 +67,7 @@ Update this file after every completed feature. Any AI agent reading this should
 - **02 Auth — route protection** — Client-side via `AuthGuard` (`useUser()` redirect to `/login`). No `middleware.ts` — the browser-first SDK has no server cookie helper.
 - **02 Auth — OAuth callback** — `/callback` relies on the SDK auto-detecting `insforge_code` (surfaced through `getCurrentUser()` in `AuthProvider`), then redirects to `/dashboard`.
 - **02 Auth — temp dashboard** — `app/dashboard/page.tsx` is a temporary `AuthGuard`-wrapped placeholder (shows user email + Sign out) so the auth loop is testable now; replaced by Feature 14.
-- **02 Auth — deferred** — Server-side InsForge access (user-scoped DB writes in Server Actions/API routes) is undecided; resolve in Feature 06.
+- **02 Auth — deferred** — Server-side InsForge access for agent API routes remains deferred to Feature 10. Profile mutations (Feature 06) use the browser SDK session instead.
 - **03 PostHog** — Client initialized via `instrumentation-client.ts` (Next.js 16 hook) with `/ingest` reverse proxy in `next.config.ts`. User identity wired in `AuthProvider` (`identify` on session load, `reset` on sign-out). Custom events: auth funnel (`sign_in_started`, `sign_in_failed`, `user_signed_in`, `user_signed_out`), marketing CTAs (`cta_clicked`, `navbar_cta_clicked`), and `dashboard_viewed`. Env vars: `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`, `NEXT_PUBLIC_POSTHOG_HOST`.
 - **02 Auth — manual prerequisite** — Google and GitHub OAuth providers must be enabled in the InsForge dashboard with `http://localhost:3000/callback` in `allowedRedirectUrls` before OAuth works end to end.
 - **04 Database Schema — migration file** — Version-controlled SQL at `insforge/migrations/001_initial_schema.sql`; applied via InsForge MCP `run-raw-sql`. No `BEGIN/COMMIT` wrapping (InsForge handles transactions).
@@ -77,7 +77,7 @@ Update this file after every completed feature. Any AI agent reading this should
 - **04 Database Schema — tailored fields excluded** — Build plan mentions "tailored fields" on jobs table but resume tailoring is out of scope per `project-overview.md`; `architecture.md` has no tailored columns. Excluded.
 - **04 Database Schema — types** — TypeScript types at `types/index.ts` mirror all four tables plus `CompanyResearch` dossier shape (9 fields from Feature 13). `Profile.education` is `Partial<Education>` because new rows default to `{}`.
 - **04 Database Schema — follow-up (002)** — `002_harden_schema.sql` hardens signup trigger with `ON CONFLICT`, backfills profiles for pre-trigger auth users. Bootstrap docs in `insforge/migrations/README.md`.
-- **04 Database Schema — server writes** — Feature 06 will use `@insforge/sdk/ssr` (or JWT-forwarding) so RLS continues to scope server/agent writes to `auth.uid()`.
+- **04 Database Schema — server writes** — Superseded by Feature 06: profile writes use the browser SDK. Agent API routes (Feature 10) still need a server JWT pattern.
 - **04 Database Schema — storage docs aligned** — `architecture.md` / `build-plan.md` / `library-docs.md` now use bucket `resumes` + key `{user_id}/resume.pdf` (matches storage RLS).
 - **05 Profile Page — UI only** — Built to `context/designs/profile.png` with mock data + local React state. No InsForge save/upload (Feature 06). Save / Select Resume / Generate buttons are visual stubs.
 - **05 Profile Page — AppNavbar** — App shell uses `AppNavbar` (logo + Dashboard / Find Jobs / Profile). Active link uses accent color + purple underline (design override of ui-rules “no underline”). Marketing `Navbar` unchanged.
@@ -85,6 +85,9 @@ Update this file after every completed feature. Any AI agent reading this should
 - **05 Profile Page — Email read-only** — Disabled input; auth-owned. Job titles seeking / preferred locations are free-text comma fields in the UI (arrays on save later).
 - **05 Profile Page — UI primitives** — Lightweight token-based `components/ui/*` (Button, Input, Select, Textarea, Label, Card, Tag). shadcn not installed yet.
 - **05 Profile Page — Completion** — `lib/profile-completion.ts` computes % + missing tags. Mock profile yields 70% with PHONE / LOCATION / EDUCATION missing.
+- **06 Profile Save — browser SDK writes** — Resolved Feature 02 deferral: `/profile` loads/saves via `lib/profile.ts` using the authenticated browser `insforge` client (RLS via session JWT). No Server Action / `@insforge/sdk/ssr` for profile. `is_complete` derived from `getProfileCompletion` (no DB columns for %/missing tags). Resume upload: PDF ≤5MB to `resumes` at `{user_id}/resume.pdf`, persist returned `data.url`. Cover letter tone still omitted from UI (unchanged on save). `profile_completed` fires when save flips incomplete→complete. Generate Resume remains Feature 08 stub.
+- **06 Profile Save — review hardening** — Vitest unit tests for profile/auth/storage helpers (`npm test`). AuthProvider preserves session only on transient errors (timeout/network); clears on auth rejection. Resume replace uploads first then removes stale prior keys (never delete-before-upload). Save uses auth email for completion; LinkedIn/portfolio require http(s) URLs; comma-list fields re-sync after save without clobbering mid-edit; resume feedback via Sonner toasts.
+- **06 Profile Save — view/download resume** — When `resume_pdf_url` is set, `/profile` shows an authenticated inline PDF preview (`fetchResumeBlob` → blob URL iframe) with Expand (modal) and Download. Blobs are normalized to `application/pdf` so the browser renders instead of downloading an untyped UUID file.
 
 ---
 

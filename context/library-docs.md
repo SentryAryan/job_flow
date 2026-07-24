@@ -49,7 +49,8 @@ The SDK keeps the access token in memory plus a httpOnly refresh cookie, so the 
 **Rules:**
 
 - Import the browser client from `@/lib/insforge-client` in Client Components.
-- Server-side InsForge access (Server Actions / API routes) is not defined yet — there is no `createServerClient` cookie helper. Decide this in Feature 06 (Profile Save); `@insforge/sdk/ssr` helpers exist if needed.
+- Default SDK timeout is 30s — this project sets `timeout: 90000` via `NEXT_PUBLIC_INSFORGE_TIMEOUT_MS` so storage uploads to ap-southeast do not abort early.
+- Server-side InsForge access for agent API routes is still open — there is no `createServerClient` cookie helper. **Feature 06 decision:** profile load/save/resume upload use the browser-authenticated `@insforge/sdk` client in `lib/profile.ts` (RLS via session JWT). Agent API routes (Feature 10) must still use a server JWT-forwarding pattern — never bypass RLS with a shared anon client for multi-table agent inserts.
 
 ---
 
@@ -118,16 +119,28 @@ const { error } = await insforge
 > Real API: `insforge.storage.from("resumes").upload(path, file)` returns `{ data, error }` with `data.url` and `data.key`. The `resumes` bucket is **private** — use authenticated download or a signed URL, not a public URL. Buckets are created with InsForge MCP tools.
 
 ```typescript
-// Upload — object key MUST be `{userId}/resume.pdf` (RLS enforces first folder = auth.uid())
+// Upload first — InsForge may auto-rename on key collision. Persist data.url,
+// then best-effort remove the previous object key (never delete before upload).
+const key = `${userId}/resume.pdf`;
 const { data, error } = await insforge.storage
   .from("resumes")
-  .upload(`${userId}/resume.pdf`, file);
+  .upload(key, file);
 
-// Persist URL (and key) on profiles after upload
 await insforge.database
   .from("profiles")
   .update({ resume_pdf_url: data?.url ?? null })
   .eq("id", userId);
+
+// Then remove stale prior keys parsed from the old resume_pdf_url when different.
+
+// Download (private bucket — requires authenticated session)
+const key = extractStorageObjectKey(profile.resume_pdf_url!) ?? `${userId}/resume.pdf`;
+const { data: blob, error: downloadError } = await insforge.storage
+  .from("resumes")
+  .download(key);
+// View/preview: createObjectURL after normalizing blob type to application/pdf,
+// then render in an iframe (inline + Expand modal). Do not window.open after await —
+// that loses the user gesture and gets popup-blocked; untyped blobs download as UUID files.
 ```
 
 **Storage paths:**
@@ -137,7 +150,8 @@ await insforge.database
 
 **Rules:**
 
-- Always upload to the same key `{user_id}/resume.pdf` so replacements overwrite logically
+- Upload before delete — never remove the existing resume until the new upload succeeds (InsForge auto-renames on collision; use returned `data.url` / `data.key`)
+- After a successful upload + DB update, best-effort `remove` stale prior keys from the old `resume_pdf_url`
 - Never use `uploadAuto()` — auto keys fail storage RLS
 - Always save `data.url` (and prefer `data.key` when download/delete is needed) back to the DB after upload
 - Never write files to disk — always upload buffer directly to storage
@@ -529,6 +543,28 @@ const result = JSON.parse(response.choices[0].message.content!);
 - Always validate parsed JSON before using — wrap in try/catch
 - Match threshold is always `MATCH_THRESHOLD` from `lib/utils.ts` — never hardcode 70
 - Company research synthesis must always return a complete dossier — never return empty even if browser research failed
+
+---
+
+## Sonner (toasts)
+
+**Package:** `sonner`
+
+Host: `components/ui/toaster.tsx` mounted once in `app/providers.tsx`.
+
+```typescript
+import { toast } from "sonner";
+
+toast.success("Profile saved");
+toast.error("Failed to save profile");
+```
+
+**Rules:**
+
+- Prefer Sonner for transient success/error feedback — do not add inline status text next to primary submit buttons for save confirmations.
+- Style only via the shared `Toaster` (`unstyled` + token `classNames` + typed `icons`). Do not hardcode hex or default Tailwind palette colors on individual toasts.
+- Keep `position="bottom-right"`. Icon circles: success green, error red, warning/info yellow (`bg-warning`).
+- Call `toast.*` from Client Components only.
 
 ---
 

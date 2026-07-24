@@ -12,6 +12,7 @@ Bootstrap order for a **new** InsForge project:
 
 - Bucket: `resumes`
 - Object key: `{user_id}/resume.pdf` (not `resumes/{user_id}/resume.pdf` — the bucket name is separate from the key)
+- Before re-upload succeeds, do **not** delete the existing object — upload first, persist `data.url`, then best-effort `remove` stale prior keys
 - Use explicit `.upload(\`${userId}/resume.pdf\`, file)` — never `uploadAuto()`
 
 ## Server-side writes (Feature 06+)

@@ -11,7 +11,7 @@ export function Tag({ label, onRemove }: TagProps) {
         <button
           type="button"
           onClick={onRemove}
-          className="inline-flex h-3.5 w-3.5 items-center justify-center text-accent hover:text-accent-dark"
+          className="inline-flex h-3.5 w-3.5 cursor-pointer items-center justify-center text-accent hover:text-accent-dark"
           aria-label={`Remove ${label}`}
         >
           <svg

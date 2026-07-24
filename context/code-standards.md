@@ -130,34 +130,25 @@ export async function POST(req: NextRequest) {
 
 ---
 
-## Server Actions
+## Profile mutations (browser SDK)
+
+Profile load/save/resume upload live in `lib/profile.ts` and run in Client Components with the authenticated browser `insforge` client (Feature 06). Returns `{ success, data?, error? }` — never throw.
 
 ```typescript
-// actions/profile.ts
+import { fetchProfile, saveProfile, uploadResume } from "@/lib/profile";
 
-"use server";
-
-import { revalidatePath } from "next/cache";
-import { createInsforgeServer } from "@/lib/insforge-server";
-
-export async function saveProfile(formData: ProfileFormData) {
-  try {
-    const insforge = await createInsforgeServer();
-    // validate
-    // write to DB
-    revalidatePath("/profile");
-    return { success: true };
-  } catch (error) {
-    console.error("[actions/profile]", error);
-    return { success: false, error: "Failed to save profile" };
-  }
-}
+const loaded = await fetchProfile(user.id);
+const saved = await saveProfile(user.id, input, {
+  email: profile.email,
+  resume_pdf_url: profile.resume_pdf_url,
+  cover_letter_tone: profile.cover_letter_tone,
+});
+const uploaded = await uploadResume(user.id, file);
 ```
 
-- Every Server Action has a try/catch
-- Every Server Action returns `{ success: boolean, error?: string }`
-- Always call `revalidatePath` after mutations that affect page data
-- Never throw from Server Actions — always return the error
+## Server Actions (agent / future server routes)
+
+Server Actions remain appropriate for server-only work. Profile UI does **not** use them. When adding server InsForge access for agent routes, forward the user JWT so RLS still applies — do not bypass RLS with a shared anon client.
 
 ---
 
@@ -205,7 +196,7 @@ const { user, isLoaded } = useUser();
 
 - Read auth state through `useUser()` — never call `getCurrentUser()` directly in components
 - Route protection is client-side via `AuthGuard` — there is no `middleware.ts`
-- Server-side InsForge access (Server Actions / API routes) — Feature 06 uses `@insforge/sdk/ssr` (or JWT forwarding) so RLS still scopes writes to `auth.uid()`; agent API routes (Feature 10) use the same pattern
+- Server-side InsForge access (Server Actions / API routes) — Feature 06 profile mutations use the browser SDK session (`lib/profile.ts`). Agent API routes (Feature 10) still need JWT forwarding / server client so RLS scopes to `auth.uid()`.
 - Always scope every query to the current user_id — never query without a user filter
 
 ---

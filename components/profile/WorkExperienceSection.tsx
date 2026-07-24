@@ -32,9 +32,11 @@ function parseYearMonth(value: string | null): { month: string; year: string } {
   return { month, year };
 }
 
+/** Persist partial month/year so selecting one field does not reset the other. */
 function toYearMonth(month: string, year: string): string {
-  if (!month || !year) return "";
-  return `${year}-${month.padStart(2, "0")}`;
+  if (!month && !year) return "";
+  const paddedMonth = month ? month.padStart(2, "0") : "";
+  return `${year}-${paddedMonth}`;
 }
 
 const EMPTY_ROLE: WorkExperienceRole = {
@@ -95,7 +97,7 @@ export function WorkExperienceSection({
           <button
             type="button"
             onClick={addRole}
-            className="text-sm font-medium text-accent hover:text-accent-dark"
+            className="cursor-pointer text-sm font-medium text-accent hover:text-accent-dark"
           >
             + Add role
           </button>
@@ -118,7 +120,7 @@ export function WorkExperienceSection({
                   <button
                     type="button"
                     onClick={() => removeRole(index)}
-                    className="text-xs font-medium text-error hover:underline"
+                    className="cursor-pointer text-xs font-medium text-error hover:underline"
                   >
                     Remove
                   </button>
@@ -230,7 +232,7 @@ export function WorkExperienceSection({
                       ))}
                     </Select>
                   </div>
-                  <label className="mt-2 flex items-center gap-2 text-sm text-text-primary">
+                  <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm text-text-primary">
                     <input
                       type="checkbox"
                       checked={role.is_current}
@@ -240,7 +242,7 @@ export function WorkExperienceSection({
                           end_date: e.target.checked ? null : role.end_date,
                         })
                       }
-                      className="h-4 w-4 rounded border-border accent-[var(--color-accent)]"
+                      className="h-4 w-4 cursor-pointer rounded border-border accent-[var(--color-accent)]"
                     />
                     Currently working here
                   </label>
