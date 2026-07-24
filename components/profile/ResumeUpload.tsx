@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { uploadResume } from "@/lib/profile";
+import { fetchResumeBlob, uploadResume } from "@/lib/profile";
 import type { Profile } from "@/types";
 
 function CloudUploadIcon() {
@@ -49,11 +50,170 @@ function DocumentIcon() {
   );
 }
 
+function ExpandIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M15 3h6v6" />
+      <path d="M9 21H3v-6" />
+      <path d="M21 3l-7 7" />
+      <path d="M3 21l7-7" />
+    </svg>
+  );
+}
+
 type ResumeUploadProps = {
   userId: string;
   resumePdfUrl: string | null;
   onUploaded: (profile: Profile) => void;
 };
+
+type ResumePreviewProps = {
+  previewUrl: string;
+  loading: boolean;
+  error: string | null;
+  pending: boolean;
+  accessPending: boolean;
+  expanded: boolean;
+  onExpand: () => void;
+  onCloseExpand: () => void;
+  onDownload: () => void;
+  onRetry: () => void;
+};
+
+function ResumePreview({
+  previewUrl,
+  loading,
+  error,
+  pending,
+  accessPending,
+  expanded,
+  onExpand,
+  onCloseExpand,
+  onDownload,
+  onRetry,
+}: ResumePreviewProps) {
+  useEffect(() => {
+    if (!expanded) return;
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onCloseExpand();
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [expanded, onCloseExpand]);
+
+  return (
+    <>
+      <div className="mt-5 w-full overflow-hidden rounded-lg border border-border bg-surface">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
+          <p className="text-sm font-medium text-text-primary">Preview</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={pending || accessPending || !previewUrl || Boolean(error)}
+              onClick={onExpand}
+            >
+              <ExpandIcon />
+              Expand
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={pending || accessPending}
+              onClick={onDownload}
+            >
+              Download
+            </Button>
+          </div>
+        </div>
+
+        <div className="relative min-h-72 bg-surface-secondary">
+          {loading ? (
+            <div className="flex min-h-72 items-center justify-center gap-2 text-sm text-text-secondary">
+              <span
+                className="h-5 w-5 animate-spin rounded-full border-2 border-border border-t-accent"
+                aria-hidden="true"
+              />
+              Loading preview…
+            </div>
+          ) : null}
+          {!loading && error ? (
+            <div className="flex min-h-72 flex-col items-center justify-center gap-3 px-4 text-center">
+              <p className="text-sm text-error" role="alert">
+                {error}
+              </p>
+              <Button type="button" variant="secondary" onClick={onRetry}>
+                Try again
+              </Button>
+            </div>
+          ) : null}
+          {!loading && !error && previewUrl ? (
+            <iframe
+              title="Resume preview"
+              src={previewUrl}
+              className="h-72 w-full border-0 bg-surface"
+            />
+          ) : null}
+        </div>
+      </div>
+
+      {expanded && previewUrl && !error ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-overlay-dark/70 p-4 sm:p-8"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Resume preview"
+          onClick={onCloseExpand}
+        >
+          <div
+            className="flex h-full max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-[var(--shadow-card)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+              <p className="text-sm font-medium text-text-primary">Resume</p>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={pending || accessPending}
+                  onClick={onDownload}
+                >
+                  Download
+                </Button>
+                <Button type="button" variant="secondary" onClick={onCloseExpand}>
+                  Close
+                </Button>
+              </div>
+            </div>
+            <iframe
+              title="Expanded resume preview"
+              src={previewUrl}
+              className="min-h-0 flex-1 w-full border-0 bg-surface"
+            />
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}
 
 export function ResumeUpload({
   userId,
@@ -61,25 +221,106 @@ export function ResumeUpload({
   onUploaded,
 }: ResumeUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const previewUrlRef = useRef<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [accessPending, setAccessPending] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [previewReloadKey, setPreviewReloadKey] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+
+    function clearPreview() {
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
+      }
+      setPreviewUrl(null);
+      setPreviewError(null);
+      setExpanded(false);
+    }
+
+    if (!resumePdfUrl) {
+      clearPreview();
+      setPreviewLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    clearPreview();
+    setPreviewLoading(true);
+
+    void fetchResumeBlob(userId, resumePdfUrl).then((result) => {
+      if (!active) return;
+
+      if (!result.success) {
+        setPreviewError(result.error);
+        setPreviewLoading(false);
+        return;
+      }
+
+      const objectUrl = URL.createObjectURL(result.data);
+      previewUrlRef.current = objectUrl;
+      setPreviewUrl(objectUrl);
+      setPreviewError(null);
+      setPreviewLoading(false);
+    });
+
+    return () => {
+      active = false;
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
+      }
+    };
+  }, [userId, resumePdfUrl, previewReloadKey]);
 
   async function handleFile(file: File | undefined) {
     if (!file) return;
     setPending(true);
-    setError(null);
     setFileName(file.name);
 
-    const result = await uploadResume(userId, file);
-    setPending(false);
+    try {
+      const result = await uploadResume(userId, file, {
+        previousUrl: resumePdfUrl,
+      });
 
-    if (!result.success) {
-      setError(result.error);
-      return;
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+
+      onUploaded(result.data.profile);
+      toast.success("Resume uploaded");
+    } finally {
+      setPending(false);
     }
+  }
 
-    onUploaded(result.data.profile);
+  async function handleDownload() {
+    setAccessPending(true);
+    try {
+      const result = await fetchResumeBlob(userId, resumePdfUrl);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+
+      const objectUrl = URL.createObjectURL(result.data);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = "resume.pdf";
+      anchor.rel = "noopener";
+      anchor.click();
+      URL.revokeObjectURL(objectUrl);
+    } finally {
+      setAccessPending(false);
+    }
   }
 
   return (
@@ -113,7 +354,7 @@ export function ResumeUpload({
           variant="secondary"
           className="mt-4"
           type="button"
-          disabled={pending}
+          disabled={pending || accessPending}
           onClick={() => inputRef.current?.click()}
         >
           {pending ? "Uploading..." : "Select Resume"}
@@ -121,15 +362,22 @@ export function ResumeUpload({
         {fileName ? (
           <p className="mt-3 text-xs text-text-secondary">{fileName}</p>
         ) : null}
-        {resumePdfUrl && !fileName ? (
-          <p className="mt-3 text-xs text-success-darker">Resume on file</p>
-        ) : null}
-        {error ? (
-          <p className="mt-3 text-sm text-error" role="alert">
-            {error}
-          </p>
-        ) : null}
       </div>
+
+      {resumePdfUrl ? (
+        <ResumePreview
+          previewUrl={previewUrl ?? ""}
+          loading={previewLoading}
+          error={previewError}
+          pending={pending}
+          accessPending={accessPending}
+          expanded={expanded}
+          onExpand={() => setExpanded(true)}
+          onCloseExpand={() => setExpanded(false)}
+          onDownload={() => void handleDownload()}
+          onRetry={() => setPreviewReloadKey((key) => key + 1)}
+        />
+      ) : null}
 
       <div className="mt-5 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
         <p className="text-sm text-text-secondary">

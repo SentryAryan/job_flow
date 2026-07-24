@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 
 import { identifyUser } from "@/lib/analytics";
+import { isTransientError } from "@/lib/errors";
 import { insforge } from "@/lib/insforge-client";
 
 type AuthContextValue = {
@@ -45,19 +46,20 @@ export function AuthProvider({ children }: Props) {
       if (!active) return;
 
       if (error) {
-        // Keep an existing session on transient timeouts/network errors so
-        // AuthGuard does not bounce the user to /login mid-session.
-        if (userRef.current) {
+        const existing = userRef.current;
+        if (existing && isTransientError(error)) {
+          // Keep session on timeout/network blips so AuthGuard does not bounce mid-session.
           setIsLoaded(true);
           return;
         }
-        if (attempt < 1) {
+        if (!existing && isTransientError(error) && attempt < 1) {
           await new Promise((resolve) => setTimeout(resolve, 400));
           if (!active) return;
           await load(attempt + 1);
           return;
         }
-        setIsLoaded(true);
+        // Auth rejection or exhausted cold-start retries → treat as signed out.
+        setSession(null);
         return;
       }
 

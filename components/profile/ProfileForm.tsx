@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
+import { useUser } from "@/components/auth/AuthProvider";
 import { EducationSection } from "@/components/profile/EducationSection";
 import { JobPreferencesSection } from "@/components/profile/JobPreferencesSection";
 import { PersonalInfoSection } from "@/components/profile/PersonalInfoSection";
@@ -35,6 +36,7 @@ export function ProfileForm({
   onProfileChange,
   onSaved,
 }: ProfileFormProps) {
+  const { user } = useUser();
   const [jobTitlesSeekingText, setJobTitlesSeekingText] = useState(() =>
     profile.job_titles_seeking.join(", "),
   );
@@ -42,6 +44,24 @@ export function ProfileForm({
     profile.preferred_locations.join(", "),
   );
   const [pending, setPending] = useState(false);
+  const syncedJobTitlesRef = useRef(profile.job_titles_seeking.join(", "));
+  const syncedLocationsRef = useRef(profile.preferred_locations.join(", "));
+
+  // Sync local comma fields only when profile arrays actually change (load/save),
+  // not when the parent re-renders with the same joined value mid-edit.
+  useEffect(() => {
+    const next = profile.job_titles_seeking.join(", ");
+    if (next === syncedJobTitlesRef.current) return;
+    syncedJobTitlesRef.current = next;
+    setJobTitlesSeekingText(next);
+  }, [profile.job_titles_seeking]);
+
+  useEffect(() => {
+    const next = profile.preferred_locations.join(", ");
+    if (next === syncedLocationsRef.current) return;
+    syncedLocationsRef.current = next;
+    setPreferredLocationsText(next);
+  }, [profile.preferred_locations]);
 
   function patch(partial: Partial<Profile>) {
     onProfileChange({ ...profile, ...partial });
@@ -57,24 +77,30 @@ export function ProfileForm({
       preferred_locations: splitCommaList(preferredLocationsText),
     };
     onProfileChange(nextProfile);
+    syncedJobTitlesRef.current = nextProfile.job_titles_seeking.join(", ");
+    syncedLocationsRef.current = nextProfile.preferred_locations.join(", ");
 
     const input: ProfileSaveInput = profileToSaveInput(nextProfile);
     const wasAlreadyComplete = profile.is_complete;
-    const result = await saveProfile(profile.id, input, {
-      email: nextProfile.email,
-      resume_pdf_url: nextProfile.resume_pdf_url,
-      cover_letter_tone: nextProfile.cover_letter_tone,
-    });
 
-    setPending(false);
+    try {
+      const result = await saveProfile(profile.id, input, {
+        // Auth email is source of truth for completion; profile.email is read-only UI.
+        email: user?.email ?? nextProfile.email,
+        resume_pdf_url: nextProfile.resume_pdf_url,
+        cover_letter_tone: nextProfile.cover_letter_tone,
+      });
 
-    if (!result.success) {
-      toast.error(result.error);
-      return;
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+
+      onSaved(result.data, wasAlreadyComplete);
+      toast.success("Profile saved");
+    } finally {
+      setPending(false);
     }
-
-    onSaved(result.data, wasAlreadyComplete);
-    toast.success("Profile saved");
   }
 
   return (

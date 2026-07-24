@@ -189,7 +189,7 @@ Alert card when `missing.length > 0`. Red warning icon, title, body, uppercase m
 
 ### ResumeUpload — `components/profile/ResumeUpload.tsx`
 
-Resume card: title + description; dashed dropzone with purple cloud-upload icon; Select Resume opens hidden PDF file input (≤5MB) → `uploadResume`; shows filename / “Resume on file” / errors; Generate Resume stays disabled (Feature 08).
+Resume card: title + description; dashed dropzone with purple cloud-upload icon; Select Resume opens hidden PDF file input (≤5MB) → `uploadResume`. When `resume_pdf_url` is set, shows an authenticated inline PDF preview (`fetchResumeBlob` → blob URL iframe) with **Expand** (modal) and **Download**; Generate Resume stays disabled (Feature 08).
 
 ### ProfileForm — `components/profile/ProfileForm.tsx`
 

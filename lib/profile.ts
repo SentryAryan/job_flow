@@ -1,10 +1,32 @@
 import { z } from "zod";
 
+import { errorMessage, isNotFoundError, isTransientError } from "@/lib/errors";
 import { insforge } from "@/lib/insforge-client";
 import { getProfileCompletion } from "@/lib/profile-completion";
+import {
+    extractStorageObjectKey,
+    resolveResumeStorageKey,
+    resumeObjectKey,
+} from "@/lib/storage-keys";
 import type { Profile, WorkExperienceRole } from "@/types";
 
 const MAX_RESUME_BYTES = 5 * 1024 * 1024;
+
+function isOptionalHttpUrl(value: string | null): boolean {
+  if (value == null || value.trim() === "") return true;
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+const optionalHttpUrl = z
+  .string()
+  .max(500)
+  .nullable()
+  .refine(isOptionalHttpUrl, { message: "Enter a valid http(s) URL" });
 
 const workExperienceRoleSchema = z.object({
   company: z.string().max(200),
@@ -41,8 +63,8 @@ export const profileSaveSchema = z.object({
     .nullable(),
   preferred_locations: z.array(z.string().max(200)).max(20),
   salary_expectation: z.string().max(100).nullable(),
-  linkedin_url: z.string().max(500).nullable(),
-  portfolio_url: z.string().max(500).nullable(),
+  linkedin_url: optionalHttpUrl,
+  portfolio_url: optionalHttpUrl,
   work_authorization: z
     .enum(["citizen", "permanent_resident", "visa_required"])
     .nullable(),
@@ -152,22 +174,27 @@ function emptyToNull(value: string | null | undefined): string | null {
   return trimmed.length === 0 ? null : trimmed;
 }
 
-function isTimeoutError(error: unknown): boolean {
-  const text =
-    error instanceof Error
-      ? error.message
-      : typeof error === "object" &&
-          error !== null &&
-          "message" in error &&
-          typeof (error as { message: unknown }).message === "string"
-        ? (error as { message: string }).message
-        : typeof error === "object" &&
-            error !== null &&
-            "details" in error &&
-            typeof (error as { details: unknown }).details === "string"
-          ? (error as { details: string }).details
-          : String(error);
-  return /timed out|timeout|AbortError/i.test(text);
+function userFacingTimeoutMessage(
+  error: unknown,
+  timeoutMessage: string,
+  fallback: string,
+): string {
+  return isTransientError(error) ? timeoutMessage : fallback;
+}
+
+function firstValidationMessage(
+  error: z.ZodError,
+  fallback: string,
+): string {
+  const issue = error.issues[0];
+  if (!issue) return fallback;
+  if (
+    issue.path.includes("linkedin_url") ||
+    issue.path.includes("portfolio_url")
+  ) {
+    return "Enter a valid LinkedIn or portfolio URL";
+  }
+  return issue.message || fallback;
 }
 
 export async function fetchProfile(
@@ -184,9 +211,11 @@ export async function fetchProfile(
       console.error("[lib/profile] fetchProfile", error);
       return {
         success: false,
-        error: isTimeoutError(error)
-          ? "Request timed out. Please try again."
-          : "Failed to load profile",
+        error: userFacingTimeoutMessage(
+          error,
+          "Request timed out. Please try again.",
+          "Failed to load profile",
+        ),
       };
     }
 
@@ -202,9 +231,11 @@ export async function fetchProfile(
     console.error("[lib/profile] fetchProfile", error);
     return {
       success: false,
-      error: isTimeoutError(error)
-        ? "Request timed out. Please try again."
-        : "Failed to load profile",
+      error: userFacingTimeoutMessage(
+        error,
+        "Request timed out. Please try again.",
+        "Failed to load profile",
+      ),
     };
   }
 }
@@ -221,7 +252,13 @@ export async function saveProfile(
   try {
     const parsed = profileSaveSchema.safeParse(input);
     if (!parsed.success) {
-      return { success: false, error: "Please check the form fields and try again" };
+      return {
+        success: false,
+        error: firstValidationMessage(
+          parsed.error,
+          "Please check the form fields and try again",
+        ),
+      };
     }
 
     const payload = parsed.data;
@@ -285,9 +322,11 @@ export async function saveProfile(
       console.error("[lib/profile] saveProfile", error);
       return {
         success: false,
-        error: isTimeoutError(error)
-          ? "Save timed out. Please try again."
-          : "Failed to save profile",
+        error: userFacingTimeoutMessage(
+          error,
+          "Save timed out. Please try again.",
+          "Failed to save profile",
+        ),
       };
     }
 
@@ -303,16 +342,54 @@ export async function saveProfile(
     console.error("[lib/profile] saveProfile", error);
     return {
       success: false,
-      error: isTimeoutError(error)
-        ? "Save timed out. Please try again."
-        : "Failed to save profile",
+      error: userFacingTimeoutMessage(
+        error,
+        "Save timed out. Please try again.",
+        "Failed to save profile",
+      ),
     };
   }
+}
+
+async function removeResumeKeys(keys: Iterable<string>): Promise<void> {
+  const bucket = insforge.storage.from("resumes");
+  for (const key of keys) {
+    const { error } = await bucket.remove(key);
+    if (!error) continue;
+    // InsForge may already have moved/replaced the object during collision rename.
+    if (isNotFoundError(error)) continue;
+    console.error("[lib/profile] uploadResume remove", key, errorMessage(error));
+  }
+}
+
+function normalizePdfFile(file: File): File {
+  if (file.type === "application/pdf") return file;
+  return new File([file], file.name, { type: "application/pdf" });
+}
+
+function staleKeysForReplace(
+  userId: string,
+  previousUrl: string | null | undefined,
+): Set<string> {
+  const keys = new Set<string>([resumeObjectKey(userId)]);
+  if (previousUrl) {
+    const previousKey = extractStorageObjectKey(previousUrl);
+    if (previousKey) keys.add(previousKey);
+  }
+  return keys;
+}
+
+async function storageUploadResume(
+  key: string,
+  file: File,
+): Promise<{ data: { url?: string; key?: string } | null; error: unknown }> {
+  return insforge.storage.from("resumes").upload(key, file);
 }
 
 export async function uploadResume(
   userId: string,
   file: File,
+  options?: { previousUrl?: string | null },
 ): Promise<ActionResult<{ profile: Profile; url: string }>> {
   try {
     const isPdf =
@@ -325,13 +402,37 @@ export async function uploadResume(
       return { success: false, error: "Maximum file size is 5MB" };
     }
 
-    const { data: uploadData, error: uploadError } = await insforge.storage
-      .from("resumes")
-      .upload(`${userId}/resume.pdf`, file);
+    const key = resumeObjectKey(userId);
+    const pdfFile = normalizePdfFile(file);
+
+    // Upload first — never delete the existing object until a new upload succeeds.
+    let { data: uploadData, error: uploadError } = await storageUploadResume(
+      key,
+      pdfFile,
+    );
+
+    // One retry on transient failure; on re-upload, clear stale keys first so
+    // InsForge does not spend time on collision rename paths.
+    if (uploadError && isTransientError(uploadError)) {
+      if (options?.previousUrl) {
+        await removeResumeKeys(staleKeysForReplace(userId, options.previousUrl));
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const retry = await storageUploadResume(key, pdfFile);
+      uploadData = retry.data;
+      uploadError = retry.error;
+    }
 
     if (uploadError || !uploadData?.url) {
       console.error("[lib/profile] uploadResume storage", uploadError);
-      return { success: false, error: "Failed to upload resume" };
+      return {
+        success: false,
+        error: userFacingTimeoutMessage(
+          uploadError,
+          "Upload timed out. Check your connection and try again.",
+          "Failed to upload resume",
+        ),
+      };
     }
 
     const { data, error } = await insforge.database
@@ -346,6 +447,25 @@ export async function uploadResume(
       return { success: false, error: "Failed to save resume URL" };
     }
 
+    const uploadedKey =
+      typeof uploadData.key === "string" && uploadData.key.length > 0
+        ? uploadData.key
+        : extractStorageObjectKey(uploadData.url);
+    const staleKeys = new Set<string>();
+    if (options?.previousUrl) {
+      const previousKey = extractStorageObjectKey(options.previousUrl);
+      if (previousKey && previousKey !== uploadedKey) {
+        staleKeys.add(previousKey);
+      }
+    }
+    if (uploadedKey && uploadedKey !== key) {
+      // New object landed under a renamed key — clear the stale canonical path if present.
+      staleKeys.add(key);
+    }
+    if (staleKeys.size > 0) {
+      await removeResumeKeys(staleKeys);
+    }
+
     return {
       success: true,
       data: {
@@ -355,7 +475,65 @@ export async function uploadResume(
     };
   } catch (error) {
     console.error("[lib/profile] uploadResume", error);
-    return { success: false, error: "Failed to upload resume" };
+    return {
+      success: false,
+      error: userFacingTimeoutMessage(
+        error,
+        "Upload timed out. Check your connection and try again.",
+        "Failed to upload resume",
+      ),
+    };
+  }
+}
+
+export async function fetchResumeBlob(
+  userId: string,
+  resumePdfUrl: string | null | undefined,
+): Promise<ActionResult<Blob>> {
+  try {
+    if (!resumePdfUrl) {
+      return { success: false, error: "No resume on file" };
+    }
+
+    const key = resolveResumeStorageKey(userId, resumePdfUrl);
+    if (!key) {
+      return { success: false, error: "Invalid resume location" };
+    }
+
+    const { data, error } = await insforge.storage
+      .from("resumes")
+      .download(key);
+
+    if (error || !data) {
+      console.error("[lib/profile] fetchResumeBlob", error);
+      return {
+        success: false,
+        error: userFacingTimeoutMessage(
+          error,
+          "Request timed out. Please try again.",
+          "Failed to load resume",
+        ),
+      };
+    }
+
+    // Storage may return an untyped blob — without application/pdf the browser
+    // downloads an unnamed UUID file instead of rendering a preview.
+    const pdfBlob =
+      data.type === "application/pdf"
+        ? data
+        : new Blob([data], { type: "application/pdf" });
+
+    return { success: true, data: pdfBlob };
+  } catch (error) {
+    console.error("[lib/profile] fetchResumeBlob", error);
+    return {
+      success: false,
+      error: userFacingTimeoutMessage(
+        error,
+        "Request timed out. Please try again.",
+        "Failed to load resume",
+      ),
+    };
   }
 }
 
