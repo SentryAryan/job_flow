@@ -3,16 +3,22 @@ import { NextResponse } from "next/server";
 
 import { withOpenRouterKeyFailover } from "@/lib/ai/provider";
 import { requireAuth } from "@/lib/api-auth";
-import { extractPdfContent } from "@/lib/pdf-text";
+import { extractPdfContent, isPdfMagicBytes } from "@/lib/pdf-text";
 import {
     EMPTY_RESUME_TEXT_ERROR,
     EXTRACT_SYSTEM_PROMPT,
     finalizeExtract,
+    hasHeuristicExtractFields,
+    hasSubstantiveExtractFields,
     isResumeTextTooShort,
     parseExtractFromModelText,
     profileExtractSchema,
     type ProfileExtract,
 } from "@/lib/resume-extract";
+import {
+    enforceResumeExtractRateLimit,
+    rateLimitResponseHeaders,
+} from "@/lib/resume-extract-rate-limit";
 
 export const runtime = "nodejs";
 
@@ -20,8 +26,12 @@ const MAX_RESUME_BYTES = 5 * 1024 * 1024;
 /** Free reasoning models spend many tokens on thinking; keep headroom for JSON. */
 const MAX_OUTPUT_TOKENS = 4096;
 
-function jsonError(status: number, error: string) {
-  return NextResponse.json({ success: false, error }, { status });
+function jsonError(
+  status: number,
+  error: string,
+  headers?: HeadersInit,
+) {
+  return NextResponse.json({ success: false, error }, { status, headers });
 }
 
 function healFromError(
@@ -39,30 +49,34 @@ function healFromError(
     return finalizeExtract(cause.value, resumeText);
   }
 
-  // Last resort: heuristics only from resume text
-  return finalizeExtract({}, resumeText);
-}
-
-function hasAnyUsefulField(extracted: ProfileExtract): boolean {
-  return Boolean(
-    extracted.full_name ||
-      extracted.phone ||
-      extracted.location ||
-      extracted.current_title ||
-      extracted.skills.length > 0 ||
-      extracted.work_experience.length > 0 ||
-      extracted.education.degree ||
-      extracted.education.institution ||
-      extracted.education.field_of_study ||
-      extracted.salary_expectation ||
-      extracted.linkedin_url,
-  );
+  return null;
 }
 
 export async function POST(request: Request) {
   const auth = await requireAuth(request);
   if (!auth.success) {
     return jsonError(auth.status, auth.error);
+  }
+
+  let rateLimitHeaders: HeadersInit | undefined;
+  try {
+    const rate = await enforceResumeExtractRateLimit(auth.user.id);
+    if (rate.enforced) {
+      rateLimitHeaders = rateLimitResponseHeaders(rate.result);
+      if (!rate.result.allowed) {
+        return jsonError(
+          429,
+          "Too many resume extractions. Please try again later.",
+          rateLimitHeaders,
+        );
+      }
+    }
+  } catch (error) {
+    console.error("resume extract rate limit unavailable", error);
+    return jsonError(
+      503,
+      "Resume extraction is temporarily unavailable. Please try again later.",
+    );
   }
 
   let formData: FormData;
@@ -86,6 +100,10 @@ export async function POST(request: Request) {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
+
+  if (!isPdfMagicBytes(buffer)) {
+    return jsonError(400, "Only PDF resumes are supported");
+  }
 
   let text: string;
   try {
@@ -125,21 +143,40 @@ ${resumeText}`,
     );
 
     const data = finalizeExtract(object, resumeText);
-    return NextResponse.json({ success: true, data });
+    if (!hasSubstantiveExtractFields(data)) {
+      return jsonError(
+        502,
+        "Could not extract profile from this resume. Please try again.",
+      );
+    }
+    return NextResponse.json(
+      { success: true, data },
+      { headers: rateLimitHeaders },
+    );
   } catch (error) {
     const healed = healFromError(error, resumeText);
-    if (healed && hasAnyUsefulField(healed)) {
+    if (healed && hasSubstantiveExtractFields(healed)) {
       console.warn(
         "resume extract: healed partial model output after schema mismatch",
       );
-      return NextResponse.json({ success: true, data: healed });
+      return NextResponse.json(
+        { success: true, data: healed },
+        { headers: rateLimitHeaders },
+      );
     }
 
-    // Absolute fallback: resume heuristics only
+    // Heuristic-only when model failed entirely — require stronger signal than salary.
     const fallbackOnly = finalizeExtract({}, resumeText);
-    if (hasAnyUsefulField(fallbackOnly)) {
+    if (hasHeuristicExtractFields(fallbackOnly)) {
       console.warn("resume extract: returning heuristic-only fallback");
-      return NextResponse.json({ success: true, data: fallbackOnly });
+      return NextResponse.json(
+        {
+          success: true,
+          data: fallbackOnly,
+          partial: true,
+        },
+        { headers: rateLimitHeaders },
+      );
     }
 
     console.error("resume extract AI failed", error);

@@ -11,6 +11,17 @@ export type PdfExtractContent = {
   links: PdfHyperlink[];
 };
 
+/** True when buffer starts with the PDF magic header (`%PDF`). */
+export function isPdfMagicBytes(buffer: Buffer): boolean {
+  if (buffer.length < 4) return false;
+  return (
+    buffer[0] === 0x25 && // %
+    buffer[1] === 0x50 && // P
+    buffer[2] === 0x44 && // D
+    buffer[3] === 0x46 // F
+  );
+}
+
 function normalizeUrl(url: string): string {
   return url.trim().replace(/[.,;)\]]+$/, "");
 }
@@ -45,6 +56,10 @@ function linksFromMarkdown(text: string): PdfHyperlink[] {
 export async function extractPdfContent(
   buffer: Buffer,
 ): Promise<PdfExtractContent> {
+  if (!isPdfMagicBytes(buffer)) {
+    throw new Error("Not a PDF file");
+  }
+
   const parser = new PDFParse({ data: buffer });
   try {
     const textResult = await parser.getText({ parseHyperlinks: true });

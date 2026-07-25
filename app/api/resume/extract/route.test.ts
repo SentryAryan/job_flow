@@ -3,9 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   mockRequireAuth,
-  mockExtractPdfText,
+  mockExtractPdfContent,
   mockGenerateObject,
   mockGetLanguageModel,
+  mockEnforceRateLimit,
   FakeNoObjectGeneratedError,
 } = vi.hoisted(() => {
   class FakeNoObjectGeneratedError extends Error {
@@ -28,9 +29,10 @@ const {
 
   return {
     mockRequireAuth: vi.fn(),
-    mockExtractPdfText: vi.fn(),
+    mockExtractPdfContent: vi.fn(),
     mockGenerateObject: vi.fn(),
     mockGetLanguageModel: vi.fn(() => "mock-model"),
+    mockEnforceRateLimit: vi.fn(async () => ({ enforced: false })),
     FakeNoObjectGeneratedError,
   };
 });
@@ -40,8 +42,9 @@ vi.mock("@/lib/api-auth", () => ({
 }));
 
 vi.mock("@/lib/pdf-text", () => ({
-  extractPdfContent: mockExtractPdfText,
-  extractPdfText: mockExtractPdfText,
+  extractPdfContent: mockExtractPdfContent,
+  isPdfMagicBytes: (buffer: Buffer) =>
+    buffer.length >= 4 && buffer.toString("utf8", 0, 4) === "%PDF",
 }));
 
 vi.mock("@/lib/ai/provider", () => ({
@@ -49,6 +52,20 @@ vi.mock("@/lib/ai/provider", () => ({
   withOpenRouterKeyFailover: async (
     run: (model: unknown) => Promise<unknown>,
   ) => run(mockGetLanguageModel()),
+}));
+
+vi.mock("@/lib/resume-extract-rate-limit", () => ({
+  enforceResumeExtractRateLimit: mockEnforceRateLimit,
+  rateLimitResponseHeaders: (result: {
+    limit: number;
+    remaining: number;
+    resetAt: number;
+  }) => ({
+    "X-RateLimit-Limit": String(result.limit),
+    "X-RateLimit-Remaining": String(result.remaining),
+    "X-RateLimit-Reset": String(Math.ceil(result.resetAt / 1000)),
+    "Retry-After": "60",
+  }),
 }));
 
 vi.mock("ai", () => ({
@@ -59,7 +76,7 @@ vi.mock("ai", () => ({
 import { POST } from "@/app/api/resume/extract/route";
 import { EMPTY_RESUME_TEXT_ERROR } from "@/lib/resume-extract";
 
-function pdfFile(content: string, name = "resume.pdf") {
+function pdfFile(content = "%PDF-1.4 sample", name = "resume.pdf") {
   return new File([content], name, { type: "application/pdf" });
 }
 
@@ -86,7 +103,9 @@ describe("POST /api/resume/extract", () => {
       user: { id: "user-1", email: "a@b.com" },
       accessToken: "token",
     });
+    mockEnforceRateLimit.mockResolvedValue({ enforced: false });
     process.env.OPENROUTER_API_KEY = "test-key";
+    process.env.APP_ENV = "development";
   });
 
   it("returns 401 when auth fails", async () => {
@@ -96,12 +115,34 @@ describe("POST /api/resume/extract", () => {
       error: "Unauthorized",
     });
 
-    const response = await postWithFile(pdfFile("%PDF"));
+    const response = await postWithFile(pdfFile());
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({
       success: false,
       error: "Unauthorized",
     });
+  });
+
+  it("returns 429 when production rate limit is exceeded", async () => {
+    mockEnforceRateLimit.mockResolvedValue({
+      enforced: true,
+      result: {
+        allowed: false,
+        limit: 3,
+        remaining: 0,
+        resetAt: Date.now() + 60_000,
+        blockedBy: "1m",
+      },
+    });
+
+    const response = await postWithFile(pdfFile());
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toMatchObject({
+      success: false,
+      error: "Too many resume extractions. Please try again later.",
+    });
+    expect(response.headers.get("Retry-After")).toBeTruthy();
+    expect(mockGenerateObject).not.toHaveBeenCalled();
   });
 
   it("returns 400 when resume file is missing", async () => {
@@ -113,10 +154,21 @@ describe("POST /api/resume/extract", () => {
     });
   });
 
-  it("returns the exact empty-text error when PDF text is too short", async () => {
-    mockExtractPdfText.mockResolvedValue({ text: "short", links: [] });
+  it("returns 400 when buffer is not a PDF", async () => {
+    const response = await postWithFile(
+      new File(["hello"], "resume.pdf", { type: "application/pdf" }),
+    );
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      success: false,
+      error: "Only PDF resumes are supported",
+    });
+  });
 
-    const response = await postWithFile(pdfFile("%PDF"));
+  it("returns the exact empty-text error when PDF text is too short", async () => {
+    mockExtractPdfContent.mockResolvedValue({ text: "short", links: [] });
+
+    const response = await postWithFile(pdfFile());
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
       success: false,
@@ -126,7 +178,7 @@ describe("POST /api/resume/extract", () => {
   });
 
   it("returns extracted profile data on success with inferred salary", async () => {
-    mockExtractPdfText.mockResolvedValue({ text: "a".repeat(80), links: [] });
+    mockExtractPdfContent.mockResolvedValue({ text: "a".repeat(80), links: [] });
     const extracted = {
       full_name: "Jane Doe",
       phone: null,
@@ -148,7 +200,7 @@ describe("POST /api/resume/extract", () => {
     };
     mockGenerateObject.mockResolvedValue({ object: extracted });
 
-    const response = await postWithFile(pdfFile("%PDF-1.4"));
+    const response = await postWithFile(pdfFile());
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.success).toBe(true);
@@ -167,7 +219,7 @@ describe("POST /api/resume/extract", () => {
   });
 
   it("heals NoObjectGeneratedError partial text into a success response", async () => {
-    mockExtractPdfText.mockResolvedValue({ text: "a".repeat(80), links: [] });
+    mockExtractPdfContent.mockResolvedValue({ text: "a".repeat(80), links: [] });
     mockGenerateObject.mockRejectedValue(
       new FakeNoObjectGeneratedError(
         '{"phone":"+91 8707 392 404","location":"","name":"ARYAN SRIVASTAVA","email":"a@b.com"}',
@@ -180,7 +232,7 @@ describe("POST /api/resume/extract", () => {
       ),
     );
 
-    const response = await postWithFile(pdfFile("%PDF"));
+    const response = await postWithFile(pdfFile());
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.success).toBe(true);
@@ -188,11 +240,11 @@ describe("POST /api/resume/extract", () => {
     expect(body.data.phone).toBe("+91 8707 392 404");
   });
 
-  it("returns 502 when the model call fails without healable payload", async () => {
-    mockExtractPdfText.mockResolvedValue({ text: "a".repeat(80), links: [] });
-    mockGenerateObject.mockRejectedValue(new Error("rate limited"));
+  it("returns 502 when the model call fails without substantive heal payload", async () => {
+    mockExtractPdfContent.mockResolvedValue({ text: "a".repeat(80), links: [] });
+    mockGenerateObject.mockRejectedValue(new Error("upstream failed"));
 
-    const response = await postWithFile(pdfFile("%PDF"));
+    const response = await postWithFile(pdfFile());
     expect(response.status).toBe(502);
     await expect(response.json()).resolves.toMatchObject({
       success: false,

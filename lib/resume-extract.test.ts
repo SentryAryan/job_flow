@@ -6,6 +6,8 @@ import {
     asResponsibilities,
     clearProfileFormFields,
     finalizeExtract,
+    hasHeuristicExtractFields,
+    hasSubstantiveExtractFields,
     inferSalaryExpectation,
     isResumeTextTooShort,
     mergeExtractedIntoProfile,
@@ -402,6 +404,28 @@ describe("clearProfileFormFields", () => {
     expect(cleared.linkedin_url).toBeNull();
     expect(cleared.portfolio_url).toBeNull();
     expect(cleared.created_at).toBe(MOCK_PROFILE.created_at);
+  });
+});
+
+describe("hasSubstantiveExtractFields / hasHeuristicExtractFields", () => {
+  it("does not treat salary-only extracts as substantive", () => {
+    const salaryOnly = emptyExtract({
+      salary_expectation: "₹12-20 LPA",
+      experience_level: "mid",
+      years_experience: 4,
+    });
+
+    expect(hasSubstantiveExtractFields(salaryOnly)).toBe(false);
+    expect(hasHeuristicExtractFields(salaryOnly)).toBe(false);
+  });
+
+  it("counts portfolio_url as substantive", () => {
+    const withPortfolio = emptyExtract({
+      portfolio_url: "https://github.com/jane",
+    });
+
+    expect(hasSubstantiveExtractFields(withPortfolio)).toBe(true);
+    expect(hasHeuristicExtractFields(withPortfolio)).toBe(true);
   });
 });
 

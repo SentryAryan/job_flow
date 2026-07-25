@@ -524,6 +524,15 @@ const { object } = await withOpenRouterKeyFailover((model) =>
 - `OPENROUTER_API_KEY` — single-key fallback (still supported if `OPENROUTER_API_KEYS` is unset)
 - `AI_PROVIDER` — default `openrouter`
 - `AI_MODEL` — default `openrouter/free` (free models router only)
+- `APP_ENV` — `development`/`dev` skips extract rate limits; `production`/`prod` enforces them (falls back to `NODE_ENV` if unset)
+- `REDIS_URL` — required in production/prod for distributed resume-extract rate limits across load-balanced servers (Redis sliding-window counters via sorted sets — not pub/sub)
+
+**Resume extract rate limits (production only):**
+
+- Per authenticated user: **3 / minute**, **15 / hour**, **40 / day**
+- Implemented in `lib/rate-limit.ts` + `lib/resume-extract-rate-limit.ts`
+- Returns `429` with `Retry-After` / `X-RateLimit-*` headers when exceeded
+- Missing `REDIS_URL` in production → `503` (fail closed)
 
 **Rules:**
 
@@ -532,6 +541,7 @@ const { object } = await withOpenRouterKeyFailover((model) =>
 - Max tokens for profile extraction: `800`
 - Validate with Zod (`profileExtractSchema`) before merging into the form
 - Use `withOpenRouterKeyFailover` for LLM calls so rate-limited keys rotate automatically
+- Reject non-PDF buffers via `%PDF` magic bytes; do not treat salary-only inference as a successful extract
 - Swap providers by extending `lib/ai/provider.ts` — do not import OpenRouter elsewhere
 - Do not install the raw `openai` package for app LLM calls; use the AI SDK
 

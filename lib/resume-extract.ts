@@ -978,6 +978,45 @@ export function isResumeTextTooShort(text: string): boolean {
   return text.trim().length < MIN_RESUME_TEXT_LENGTH;
 }
 
+/**
+ * True when the extract has real profile content (not salary-only inference).
+ * Used after model heal paths.
+ */
+export function hasSubstantiveExtractFields(
+  extracted: ProfileExtract,
+): boolean {
+  return Boolean(
+    extracted.full_name ||
+      extracted.phone ||
+      extracted.location ||
+      extracted.current_title ||
+      extracted.skills.length > 0 ||
+      extracted.work_experience.length > 0 ||
+      extracted.education.degree ||
+      extracted.education.institution ||
+      extracted.education.field_of_study ||
+      extracted.linkedin_url ||
+      extracted.portfolio_url,
+  );
+}
+
+/**
+ * Stricter gate for heuristic-only fallbacks (no model object).
+ * Requires identity or career signal — never salary alone.
+ */
+export function hasHeuristicExtractFields(extracted: ProfileExtract): boolean {
+  return Boolean(
+    extracted.full_name ||
+      extracted.phone ||
+      extracted.skills.length > 0 ||
+      extracted.work_experience.length > 0 ||
+      extracted.education.degree ||
+      extracted.education.institution ||
+      extracted.linkedin_url ||
+      extracted.portfolio_url,
+  );
+}
+
 function nonEmptyString(value: string | null | undefined): string | null {
   if (value == null) return null;
   const trimmed = value.trim();
