@@ -493,56 +493,57 @@ const response = await openai.chat.completions.create({
 - If browser research returns empty — still run synthesis with job + profile only
 - yourEdge, gapsToAddress, and smartQuestions are the most valuable fields — never skip them
 
-## OpenAI GPT-4o
+## Vercel AI SDK + OpenRouter
 
-**Check first:** Check AGENTS.md for an installed OpenAI skill. The skill will have the latest API patterns and model capabilities.
+**Packages:** `ai`, `@openrouter/ai-sdk-provider`
 
-### Structured JSON Response
+**Check first:** Prefer `lib/ai/provider.ts` — never hardcode a provider at call sites.
+
+### Structured extraction (Feature 07)
 
 ```typescript
-import OpenAI from "openai";
+import { generateObject } from "ai";
+import { withOpenRouterKeyFailover } from "@/lib/ai/provider";
+import { profileExtractSchema } from "@/lib/resume-extract";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
-
-const response = await openai.chat.completions.create({
-  model: "gpt-4o",
-  response_format: { type: "json_object" },
-  temperature: 0.3,
-  messages: [
-    {
-      role: "system",
-      content: "You are a job matching assistant. Return only valid JSON.",
-    },
-    {
-      role: "user",
-      content: `Your prompt here`,
-    },
-  ],
-});
-
-const result = JSON.parse(response.choices[0].message.content!);
+const { object } = await withOpenRouterKeyFailover((model) =>
+  generateObject({
+    model,
+    schema: profileExtractSchema,
+    temperature: 0.3,
+    maxOutputTokens: 800,
+    system: "Extract profile fields…",
+    prompt: `Resume text:\n\n${text}`,
+  }),
+);
 ```
 
-**Temperature settings:**
+**Env (server-only):**
 
-- `0.3` — matching, scoring, extraction, research synthesis — deterministic results
-- `0.7` — resume generation — natural variation
+- `OPENROUTER_API_KEYS` — preferred; comma / semicolon / newline-separated keys for in-request failover on 429/quota
+- `OPENROUTER_API_KEY` — single-key fallback (still supported if `OPENROUTER_API_KEYS` is unset)
+- `AI_PROVIDER` — default `openrouter`
+- `AI_MODEL` — default `openrouter/free` (free models router only)
+- `APP_ENV` — `development`/`dev` skips extract rate limits; `production`/`prod` enforces them (falls back to `NODE_ENV` if unset)
+- `REDIS_URL` — required in production/prod for distributed resume-extract rate limits across load-balanced servers (Redis sliding-window counters via sorted sets — not pub/sub)
 
-**Max tokens:**
+**Resume extract rate limits (production only):**
 
-- Job matching + scoring: `300`
-- Company research synthesis: `800`
-- Resume generation: `1000`
-- Profile extraction from resume: `800`
+- Per authenticated user: **3 / minute**, **15 / hour**, **40 / day**
+- Implemented in `lib/rate-limit.ts` + `lib/resume-extract-rate-limit.ts`
+- Returns `429` with `Retry-After` / `X-RateLimit-*` headers when exceeded
+- Missing `REDIS_URL` in production → `503` (fail closed)
 
 **Rules:**
 
-- Model string is always `'gpt-4o'` — never use other model names
-- Always use `response_format: { type: 'json_object' }` for structured data
-- Always parse `response.choices[0].message.content` as string — even with json_object it returns a string
-- Always validate parsed JSON before using — wrap in try/catch
-- Match threshold is always `MATCH_THRESHOLD` from `lib/utils.ts` — never hardcode 70
-- Company research synthesis must always return a complete dossier — never return empty even if browser research failed
+- Profile extraction uses `openrouter/free` with OpenRouter `response-healing` plugin
+- Temperature `0.3` for extraction / matching / research synthesis; `0.7` for resume generation (later)
+- Max tokens for profile extraction: `800`
+- Validate with Zod (`profileExtractSchema`) before merging into the form
+- Use `withOpenRouterKeyFailover` for LLM calls so rate-limited keys rotate automatically
+- Reject non-PDF buffers via `%PDF` magic bytes; do not treat salary-only inference as a successful extract
+- Swap providers by extending `lib/ai/provider.ts` — do not import OpenRouter elsewhere
+- Do not install the raw `openai` package for app LLM calls; use the AI SDK
 
 ---
 
@@ -682,30 +683,30 @@ Only use these — others are silently ignored:
 
 ## pdf-parse
 
-**Check first:** Check AGENTS.md for an installed pdf-parse skill.
+**Check first:** Use `lib/pdf-text.ts` (Node only). pdf-parse v2 uses the `PDFParse` class.
 
 ### Extract Text from Uploaded Resume
 
 ```typescript
-import pdf from "pdf-parse";
+import { PDFParse } from "pdf-parse";
 
-// In API route handling resume upload
-export async function POST(req: NextRequest) {
-  const formData = await req.formData();
-  const file = formData.get("resume") as File;
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-
-  const pdfData = await pdf(buffer);
-  const extractedText = pdfData.text; // raw text content
-
-  // Send to GPT-4o for structured extraction
+const parser = new PDFParse({ data: buffer });
+try {
+  // Prefer lib/pdf-text extractPdfContent — enables hyperlink recovery for LinkedIn/GitHub labels
+  const pdfData = await parser.getText({ parseHyperlinks: true });
+  const info = await parser.getInfo({ parsePageInfo: true });
+  const extractedText = pdfData.text;
+  const links = info.pages.flatMap((p) => p.links);
+} finally {
+  await parser.destroy();
 }
 ```
 
 **Rules:**
 
 - Server-side only — never import in client components
-- `pdfData.text` is raw unformatted text — GPT-4o handles the structure extraction
+- Route must use `export const runtime = "nodejs"`
+- Use `extractPdfContent` from `lib/pdf-text.ts` (Node only) so embedded hyperlinks (e.g. "LinkedIn" / "GitHub" anchors) are appended as `EXTRACTED_HYPERLINKS` for AI + heuristics
+- `pdfData.text` is raw unformatted text — the AI SDK handles structure extraction
 - Always handle parse errors — some PDFs are image-based and return empty text
-- If `pdfData.text` is empty or very short — return error to user: "Could not extract text from this PDF. Please try a different file."
+- If text is empty or shorter than 50 chars — return: "Could not extract text from this PDF. Please try a different file."

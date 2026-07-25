@@ -9,7 +9,7 @@
 | Cloud browser                  | Browserbase              | Company research — browsing company public pages |
 | AI browser control             | Stagehand                | Company page interaction and content extraction  |
 | Job Discovery                  | Adzuna API               | Job search and discovery                         |
-| AI model                       | OpenAI GPT-4o            | Matching, research synthesis, extraction         |
+| AI model                       | Vercel AI SDK + OpenRouter | Structured extraction (Feature 07: `openrouter/free`); provider-swappable via `lib/ai/provider.ts` |
 | Analytics                      | PostHog                  | Event tracking and dashboard charts              |
 | PDF generation                 | @react-pdf/renderer      | Resume PDF rendering                             |
 | Styling                        | Tailwind CSS + shadcn/ui | UI components and styling                        |
@@ -95,7 +95,12 @@
 │       └── JobActions.tsx
 ├── lib/
 │   ├── insforge-client.ts                 → InsForge browser client instance
-│   ├── insforge-server.ts                 → InsForge server client
+│   ├── api-auth.ts                        → Bearer JWT verification for API routes
+│   ├── ai/
+│   │   └── provider.ts                    → AI SDK language model (OpenRouter free by default)
+│   ├── resume-extract.ts                  → Extract Zod schema + merge into Profile
+│   ├── pdf-text.ts                        → pdf-parse text extraction (Node)
+│   ├── profile.ts                         → Browser profile load/save/resume upload
 │   ├── browserbase.ts                     → Browserbase session creation + management
 │   ├── stagehand.ts                       → Stagehand initialisation with Browserbase session
 │   ├── adzuna.ts                          → Adzuna API client

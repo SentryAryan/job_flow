@@ -5,7 +5,9 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { insforge } from "@/lib/insforge-client";
 import { fetchResumeBlob, uploadResume } from "@/lib/profile";
+import type { ProfileExtract } from "@/lib/resume-extract";
 import type { Profile } from "@/types";
 
 function CloudUploadIcon() {
@@ -75,6 +77,7 @@ type ResumeUploadProps = {
   userId: string;
   resumePdfUrl: string | null;
   onUploaded: (profile: Profile) => void;
+  onExtracted: (extracted: ProfileExtract) => void;
 };
 
 type ResumePreviewProps = {
@@ -219,11 +222,13 @@ export function ResumeUpload({
   userId,
   resumePdfUrl,
   onUploaded,
+  onExtracted,
 }: ResumeUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const previewUrlRef = useRef<string | null>(null);
   const [pending, setPending] = useState(false);
   const [accessPending, setAccessPending] = useState(false);
+  const [extractPending, setExtractPending] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -323,6 +328,63 @@ export function ResumeUpload({
     }
   }
 
+  async function handleExtract() {
+    if (!resumePdfUrl) return;
+    setExtractPending(true);
+    try {
+      const token = await insforge.getHttpClient().getValidAccessToken();
+      if (!token) {
+        toast.error("Please sign in again to extract from your resume");
+        return;
+      }
+
+      const blobResult = await fetchResumeBlob(userId, resumePdfUrl);
+      if (!blobResult.success) {
+        toast.error(blobResult.error);
+        return;
+      }
+
+      const formData = new FormData();
+      formData.set(
+        "resume",
+        new File([blobResult.data], "resume.pdf", {
+          type: "application/pdf",
+        }),
+      );
+
+      const response = await fetch("/api/resume/extract", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      const payload = (await response.json()) as {
+        success?: boolean;
+        data?: ProfileExtract;
+        error?: string;
+      };
+
+      if (!response.ok || !payload.success || !payload.data) {
+        toast.error(
+          payload.error ??
+            "Could not extract profile from this resume. Please try again.",
+        );
+        return;
+      }
+
+      onExtracted(payload.data);
+      toast.success("Profile fields filled from resume — review and save");
+    } catch {
+      toast.error(
+        "Could not extract profile from this resume. Please try again.",
+      );
+    } finally {
+      setExtractPending(false);
+    }
+  }
+
+  const busy = pending || accessPending || extractPending;
+
   return (
     <Card>
       <h2 className="text-base font-semibold text-text-primary">Resume</h2>
@@ -354,7 +416,7 @@ export function ResumeUpload({
           variant="secondary"
           className="mt-4"
           type="button"
-          disabled={pending || accessPending}
+          disabled={busy}
           onClick={() => inputRef.current?.click()}
         >
           {pending ? "Uploading..." : "Select Resume"}
@@ -369,7 +431,7 @@ export function ResumeUpload({
           previewUrl={previewUrl ?? ""}
           loading={previewLoading}
           error={previewError}
-          pending={pending}
+          pending={busy}
           accessPending={accessPending}
           expanded={expanded}
           onExpand={() => setExpanded(true)}
@@ -377,6 +439,22 @@ export function ResumeUpload({
           onDownload={() => void handleDownload()}
           onRetry={() => setPreviewReloadKey((key) => key + 1)}
         />
+      ) : null}
+
+      {resumePdfUrl ? (
+        <div className="mt-5 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+          <p className="text-sm text-text-secondary">
+            Auto-fill the form fields below from your uploaded resume.
+          </p>
+          <Button
+            type="button"
+            className="shrink-0 py-3 text-sm font-medium"
+            disabled={busy}
+            onClick={() => void handleExtract()}
+          >
+            {extractPending ? "Extracting..." : "Extract from Resume"}
+          </Button>
+        </div>
       ) : null}
 
       <div className="mt-5 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
