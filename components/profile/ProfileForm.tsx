@@ -16,6 +16,7 @@ import {
     saveProfile,
     type ProfileSaveInput,
 } from "@/lib/profile";
+import { clearProfileFormFields } from "@/lib/resume-extract";
 import type { Profile } from "@/types";
 
 function splitCommaList(value: string): string[] {
@@ -65,6 +66,16 @@ export function ProfileForm({
 
   function patch(partial: Partial<Profile>) {
     onProfileChange({ ...profile, ...partial });
+  }
+
+  function handleClearAllFields() {
+    const cleared = clearProfileFormFields(profile);
+    onProfileChange(cleared);
+    syncedJobTitlesRef.current = "";
+    syncedLocationsRef.current = "";
+    setJobTitlesSeekingText("");
+    setPreferredLocationsText("");
+    toast.success("Cleared all fields (resume kept)");
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -139,13 +150,24 @@ export function ProfileForm({
           onPreferredLocationsTextChange={setPreferredLocationsText}
         />
 
-        <Button
-          type="submit"
-          className="w-full py-3 text-sm font-medium"
-          disabled={pending}
-        >
-          {pending ? "Saving..." : "Save Profile"}
-        </Button>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
+          <Button
+            type="button"
+            variant="danger"
+            className="w-full py-3 text-sm font-medium sm:flex-1"
+            disabled={pending}
+            onClick={handleClearAllFields}
+          >
+            Clear all fields
+          </Button>
+          <Button
+            type="submit"
+            className="w-full py-3 text-sm font-medium sm:flex-1"
+            disabled={pending}
+          >
+            {pending ? "Saving..." : "Save Profile"}
+          </Button>
+        </div>
       </form>
     </Card>
   );

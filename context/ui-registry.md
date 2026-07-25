@@ -168,11 +168,11 @@ Authenticated app chrome (Profile / Dashboard / Find Jobs). Distinct from market
 
 Token-based form primitives (Feature 05). Index barrel allowed only here.
 
-- **Button** — `rounded-md px-4 py-2 text-sm font-medium`; primary `border border-accent-dark border-b-[3px] border-b-accent-dark bg-accent text-accent-foreground hover:bg-accent-dark`; secondary `border border-border border-b-2 border-b-border-muted bg-surface text-text-primary hover:bg-surface-secondary`; muted (Add) `bg-surface-secondary hover:bg-surface-tertiary` with same elevated gray border
+- **Button** — `rounded-md px-4 py-2 text-sm font-medium`; primary `border border-accent-dark border-b-[3px] border-b-accent-dark bg-accent text-accent-foreground hover:bg-accent-dark`; secondary `border border-border border-b-2 border-b-border-muted bg-surface text-text-primary hover:bg-surface-secondary`; muted (Add) `bg-surface-secondary hover:bg-surface-tertiary` with same elevated gray border; danger `bg-error text-error-foreground border-error hover:bg-error-dark hover:border-error-dark` (full-button solid red hover, not black)
 - **Input / Select / Textarea** — `w-full rounded-md border border-border border-b-2 border-b-border-muted px-3 py-2 text-sm text-text-primary` + filled `bg-surface-secondary` / empty `bg-surface` + `focus:border-accent focus:border-b-accent focus:ring-1 focus:ring-accent`; disabled `bg-surface-secondary text-text-secondary`
 - **Label** — `mb-1.5 block text-xs font-semibold uppercase tracking-wide text-text-secondary`
 - **Card** — `rounded-xl border border-border bg-surface p-6 shadow-[var(--shadow-card)]` (`--shadow-card` in `app/globals.css`)
-- **Tag** — `rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-medium text-text-primary` + purple remove ×
+- **Tag** — `rounded-md border border-accent bg-accent-light px-2.5 py-1 text-xs font-medium text-accent` + purple remove ×
 
 ### Profile page — `app/profile/page.tsx`
 
@@ -189,11 +189,11 @@ Alert card when `missing.length > 0`. Red warning icon, title, body, uppercase m
 
 ### ResumeUpload — `components/profile/ResumeUpload.tsx`
 
-Resume card: title + description; dashed dropzone with purple cloud-upload icon; Select Resume opens hidden PDF file input (≤5MB) → `uploadResume`. When `resume_pdf_url` is set, shows an authenticated inline PDF preview (`fetchResumeBlob` → blob URL iframe) with **Expand** (modal) and **Download**; Generate Resume stays disabled (Feature 08).
+Resume card: title + description; dashed dropzone with purple cloud-upload icon; Select Resume opens hidden PDF file input (≤5MB) → `uploadResume`. When `resume_pdf_url` is set, shows an authenticated inline PDF preview (`fetchResumeBlob` → blob URL iframe) with **Expand** (modal) and **Download**, plus **Extract from Resume** (primary/purple accent button; Feature 07: POST `/api/resume/extract` → merge into form via `onExtracted`). Generate Resume stays disabled (Feature 08).
 
 ### ProfileForm — `components/profile/ProfileForm.tsx`
 
-Orchestrates sections with `border-t border-border` dividers; Save Profile calls `saveProfile`. Success/error feedback via Sonner toasts (`toast.success` / `toast.error`) — no inline status text above the button. Sections: `PersonalInfoSection`, `ProfessionalInfoSection` (+ `TagInput`), `WorkExperienceSection` (max 3, “+ Add role”, role blocks use `bg-surface-secondary`), `EducationSection`, `JobPreferencesSection`.
+Orchestrates sections with `border-t border-border` dividers; Save Profile calls `saveProfile`. **Clear all fields** (`danger`/red, beside Save) resets editable form state via `clearProfileFormFields` while keeping `resume_pdf_url` / email / id / timestamps. Success/error feedback via Sonner toasts (`toast.success` / `toast.error`) — no inline status text above the button. Sections: `PersonalInfoSection`, `ProfessionalInfoSection` (+ `TagInput`), `WorkExperienceSection` (max 3, “+ Add role”, role blocks use `bg-surface-secondary`), `EducationSection`, `JobPreferencesSection`.
 
 ### Toaster — `components/ui/toaster.tsx`
 

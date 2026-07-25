@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
-type ButtonVariant = "primary" | "secondary" | "muted";
+type ButtonVariant = "primary" | "secondary" | "muted" | "danger";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
@@ -14,6 +14,8 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
     "border border-border border-b-2 border-b-border-muted bg-surface text-text-primary hover:bg-surface-secondary disabled:opacity-50",
   muted:
     "border border-border border-b-2 border-b-border-muted bg-surface-secondary text-text-primary hover:bg-surface-tertiary disabled:opacity-50",
+  danger:
+    "border border-error border-b-[3px] border-b-error bg-error text-error-foreground hover:border-error-dark hover:border-b-error-dark hover:bg-error-dark disabled:opacity-50",
 };
 
 export function Button({

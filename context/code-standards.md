@@ -301,7 +301,8 @@ Approved dependencies for this project:
 - `@insforge/sdk` — InsForge client (browser-first)
 - `@browserbasehq/sdk` — Browserbase sessions
 - `@browserbasehq/stagehand` — AI browser control
-- `openai` — GPT-4o API
+- `ai` — Vercel AI SDK (generateObject / generateText)
+- `@openrouter/ai-sdk-provider` — OpenRouter provider for AI SDK
 - `posthog-js` — PostHog browser client
 - `posthog-node` — PostHog server client
 - `@react-pdf/renderer` — Resume PDF generation
