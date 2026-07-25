@@ -1,9 +1,18 @@
 import { generateObject, NoObjectGeneratedError } from "ai";
 import { NextResponse } from "next/server";
 
-import { withOpenRouterKeyFailover } from "@/lib/ai/provider";
+import { isOpenRouterKeyUnusableError, withOpenRouterKeyFailover } from "@/lib/ai/provider";
 import { requireAuth } from "@/lib/api-auth";
+import {
+    BYOK_KEYS_FAILED_USER_MESSAGE,
+    loadDecryptedOpenRouterKeys,
+} from "@/lib/byok-keys";
+import { createAuthedInsforgeClient } from "@/lib/insforge-server";
 import { extractPdfContent, isPdfMagicBytes } from "@/lib/pdf-text";
+import {
+    enforceResumeAiRateLimit,
+    rateLimitResponseHeaders,
+} from "@/lib/resume-ai-rate-limit";
 import {
     EMPTY_RESUME_TEXT_ERROR,
     EXTRACT_SYSTEM_PROMPT,
@@ -15,10 +24,6 @@ import {
     profileExtractSchema,
     type ProfileExtract,
 } from "@/lib/resume-extract";
-import {
-    enforceResumeExtractRateLimit,
-    rateLimitResponseHeaders,
-} from "@/lib/resume-extract-rate-limit";
 
 export const runtime = "nodejs";
 
@@ -58,25 +63,51 @@ export async function POST(request: Request) {
     return jsonError(auth.status, auth.error);
   }
 
-  let rateLimitHeaders: HeadersInit | undefined;
+  let byokKeys: string[] = [];
   try {
-    const rate = await enforceResumeExtractRateLimit(auth.user.id);
-    if (rate.enforced) {
-      rateLimitHeaders = rateLimitResponseHeaders(rate.result);
-      if (!rate.result.allowed) {
-        return jsonError(
-          429,
-          "Too many resume extractions. Please try again later.",
-          rateLimitHeaders,
-        );
-      }
-    }
+    const client = createAuthedInsforgeClient(auth.accessToken);
+    byokKeys = await loadDecryptedOpenRouterKeys(auth.user.id, client);
   } catch (error) {
-    console.error("resume extract rate limit unavailable", error);
+    if (
+      error instanceof Error &&
+      error.message.includes("BYOK_ENCRYPTION_SECRET")
+    ) {
+      console.error("resume extract BYOK crypto unavailable", error);
+      return jsonError(
+        503,
+        "Resume extraction is temporarily unavailable. Please try again later.",
+      );
+    }
+    console.error("resume extract BYOK load failed", error);
     return jsonError(
       503,
       "Resume extraction is temporarily unavailable. Please try again later.",
     );
+  }
+
+  const useByok = byokKeys.length > 0;
+  let rateLimitHeaders: HeadersInit | undefined;
+
+  if (!useByok) {
+    try {
+      const rate = await enforceResumeAiRateLimit(auth.user.id);
+      if (rate.enforced) {
+        rateLimitHeaders = rateLimitResponseHeaders(rate.result);
+        if (!rate.result.allowed) {
+          return jsonError(
+            429,
+            "Too many resume extractions. Please try again later.",
+            rateLimitHeaders,
+          );
+        }
+      }
+    } catch (error) {
+      console.error("resume extract rate limit unavailable", error);
+      return jsonError(
+        503,
+        "Resume extraction is temporarily unavailable. Please try again later.",
+      );
+    }
   }
 
   let formData: FormData;
@@ -121,14 +152,15 @@ export async function POST(request: Request) {
   const resumeText = text.slice(0, 16000);
 
   try {
-    const { object } = await withOpenRouterKeyFailover((model) =>
-      generateObject({
-        model,
-        schema: profileExtractSchema,
-        temperature: 0.2,
-        maxOutputTokens: MAX_OUTPUT_TOKENS,
-        system: EXTRACT_SYSTEM_PROMPT,
-        prompt: `Extract a complete profile JSON from this resume.
+    const { object } = await withOpenRouterKeyFailover(
+      (model) =>
+        generateObject({
+          model,
+          schema: profileExtractSchema,
+          temperature: 0.2,
+          maxOutputTokens: MAX_OUTPUT_TOKENS,
+          system: EXTRACT_SYSTEM_PROMPT,
+          prompt: `Extract a complete profile JSON from this resume.
 Remember:
 - education.degree must be exactly one of: High School, Associate, Bachelor, Master, PhD, Bootcamp, Other
 - work_experience dates must be YYYY-MM; responsibilities must be a single string
@@ -139,7 +171,8 @@ Remember:
 Resume text:
 
 ${resumeText}`,
-      }),
+        }),
+      useByok ? { keys: byokKeys } : undefined,
     );
 
     const data = finalizeExtract(object, resumeText);
@@ -154,6 +187,10 @@ ${resumeText}`,
       { headers: rateLimitHeaders },
     );
   } catch (error) {
+    if (useByok && isOpenRouterKeyUnusableError(error)) {
+      return jsonError(502, BYOK_KEYS_FAILED_USER_MESSAGE);
+    }
+
     const healed = healFromError(error, resumeText);
     if (healed && hasSubstantiveExtractFields(healed)) {
       console.warn(
@@ -182,7 +219,9 @@ ${resumeText}`,
     console.error("resume extract AI failed", error);
     return jsonError(
       502,
-      "Could not extract profile from this resume. Please try again.",
+      useByok
+        ? BYOK_KEYS_FAILED_USER_MESSAGE
+        : "Could not extract profile from this resume. Please try again.",
     );
   }
 }

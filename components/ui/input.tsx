@@ -1,30 +1,19 @@
-import type { InputHTMLAttributes } from "react";
+import * as React from "react";
 
-type InputProps = InputHTMLAttributes<HTMLInputElement>;
+import { cn } from "@/lib/utils";
 
-function hasFilledValue(value: InputProps["value"]): boolean {
-  if (value == null) return false;
-  return String(value).length > 0;
-}
-
-/** Elevated field chrome: thin gray sides/top, slightly heavier bottom edge. */
-const FIELD_BORDER =
-  "border border-border border-b-2 border-b-border-muted";
-
-export function Input({ className = "", value, defaultValue, ...props }: InputProps) {
-  const filled =
-    value !== undefined
-      ? hasFilledValue(value)
-      : hasFilledValue(defaultValue as InputProps["value"]);
-
+function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   return (
     <input
-      value={value}
-      defaultValue={defaultValue}
-      className={`w-full rounded-md ${FIELD_BORDER} px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:border-b-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed disabled:bg-surface-secondary disabled:text-text-secondary ${
-        filled ? "bg-surface-secondary" : "bg-surface"
-      } ${className}`}
+      type={type}
+      data-slot="input"
+      className={cn(
+        "h-10 w-full min-w-0 rounded-md border border-border border-b-2 border-b-border-muted bg-surface px-3 py-2 text-sm text-text-primary transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-text-muted focus-visible:border-accent focus-visible:border-b-accent focus-visible:ring-1 focus-visible:ring-accent disabled:cursor-not-allowed disabled:bg-surface-secondary disabled:text-text-secondary disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-1 aria-invalid:ring-destructive/30 md:text-sm",
+        className,
+      )}
       {...props}
     />
   );
 }
+
+export { Input };

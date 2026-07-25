@@ -1,5 +1,6 @@
 "use client";
 
+import { Eraser, Save } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -10,7 +11,7 @@ import { PersonalInfoSection } from "@/components/profile/PersonalInfoSection";
 import { ProfessionalInfoSection } from "@/components/profile/ProfessionalInfoSection";
 import { WorkExperienceSection } from "@/components/profile/WorkExperienceSection";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
     profileToSaveInput,
     saveProfile,
@@ -115,60 +116,70 @@ export function ProfileForm({
   }
 
   return (
-    <Card>
-      <div className="mb-6">
-        <h2 className="text-base font-semibold text-text-primary">
-          Profile Information
-        </h2>
-        <p className="mt-1 text-sm font-medium text-text-secondary">
-          This content is used to accurately represent you in agent
-          interactions.
-        </p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-8">
-        <PersonalInfoSection profile={profile} onChange={patch} />
-        <div className="border-t border-border" />
-        <ProfessionalInfoSection profile={profile} onChange={patch} />
-        <div className="border-t border-border" />
-        <WorkExperienceSection
-          roles={profile.work_experience}
-          onChange={(work_experience) => patch({ work_experience })}
-        />
-        <div className="border-t border-border" />
-        <EducationSection
-          education={profile.education}
-          onChange={(education) => patch({ education })}
-        />
-        <div className="border-t border-border" />
-        <JobPreferencesSection
-          profile={profile}
-          jobTitlesSeekingText={jobTitlesSeekingText}
-          preferredLocationsText={preferredLocationsText}
-          onProfileChange={patch}
-          onJobTitlesSeekingTextChange={setJobTitlesSeekingText}
-          onPreferredLocationsTextChange={setPreferredLocationsText}
-        />
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
-          <Button
-            type="button"
-            variant="danger"
-            className="w-full py-3 text-sm font-medium sm:flex-1"
-            disabled={pending}
-            onClick={handleClearAllFields}
-          >
-            Clear all fields
-          </Button>
-          <Button
-            type="submit"
-            className="w-full py-3 text-sm font-medium sm:flex-1"
-            disabled={pending}
-          >
-            {pending ? "Saving..." : "Save Profile"}
-          </Button>
+    <Card aria-busy={pending || undefined}>
+      <CardContent>
+        <div className="mb-6">
+          <h2 className="text-base font-semibold text-text-primary">
+            Profile Information
+          </h2>
+          <p className="mt-1 text-sm font-medium text-text-secondary">
+            This content is used to accurately represent you in agent
+            interactions.
+          </p>
         </div>
-      </form>
+
+        <form
+          onSubmit={handleSubmit}
+          className={`flex flex-col gap-8 transition-opacity duration-200 ${pending ? "opacity-70" : "opacity-100"}`}
+        >
+          <fieldset disabled={pending} className="flex min-w-0 flex-col gap-8 border-0 p-0">
+            <PersonalInfoSection profile={profile} onChange={patch} />
+            <div className="border-t border-border" />
+            <ProfessionalInfoSection profile={profile} onChange={patch} />
+            <div className="border-t border-border" />
+            <WorkExperienceSection
+              roles={profile.work_experience}
+              onChange={(work_experience) => patch({ work_experience })}
+            />
+            <div className="border-t border-border" />
+            <EducationSection
+              education={profile.education}
+              onChange={(education) => patch({ education })}
+            />
+            <div className="border-t border-border" />
+            <JobPreferencesSection
+              profile={profile}
+              jobTitlesSeekingText={jobTitlesSeekingText}
+              preferredLocationsText={preferredLocationsText}
+              onProfileChange={patch}
+              onJobTitlesSeekingTextChange={setJobTitlesSeekingText}
+              onPreferredLocationsTextChange={setPreferredLocationsText}
+            />
+          </fieldset>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
+            <Button
+              type="button"
+              variant="danger"
+              className="w-full min-h-11 py-3 text-sm font-medium sm:flex-1"
+              disabled={pending}
+              onClick={handleClearAllFields}
+            >
+              <Eraser data-icon="inline-start" />
+              Clear all fields
+            </Button>
+            <Button
+              type="submit"
+              className="w-full min-h-11 py-3 text-sm font-medium sm:flex-1"
+              pending={pending}
+              disabled={pending}
+            >
+              {!pending ? <Save data-icon="inline-start" /> : null}
+              {pending ? "Saving..." : "Save Profile"}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
     </Card>
   );
 }

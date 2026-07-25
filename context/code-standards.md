@@ -221,8 +221,9 @@ All PostHog events must use these exact event names. Never invent new event name
 | `job_found`          | Each job discovered and saved              | userId, source, matchScore |
 | `profile_completed`  | User saves complete profile for first time | userId                     |
 | `company_researched` | Company research dossier generated         | userId, jobId, company     |
+| `resume_generated`   | User generates resume PDF from profile     | userId                     |
 
-These four events are the only events in this project. Do not add more without updating this list first.
+These events are the only events in this project. Do not add more without updating this list first.
 
 `job_found` powers the Jobs Found Over Time and Match Score Distribution dashboard charts.
 `company_researched` powers the Company Research Activity dashboard chart.
@@ -308,8 +309,9 @@ Approved dependencies for this project:
 - `@react-pdf/renderer` — Resume PDF generation
 - `pdf-parse` — Extract text from uploaded PDF
 - `zod` — Schema validation
-- `lucide-react` — Icons
-- `tailwindcss` — Styling
-- `shadcn/ui` components — UI primitives
+- `shadcn/ui` components — UI primitives (`npx shadcn@latest add`; config in `components.json`)
+- `radix-ui` / `class-variance-authority` / `clsx` / `tailwind-merge` / `lucide-react` — shadcn runtime
+- `motion` — Profile loading / section motion (`motion/react`)
+- `sonner` — Toasts via `components/ui/toaster.tsx`
 
 Do not install any other packages without updating this list first.

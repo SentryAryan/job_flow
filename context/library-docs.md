@@ -524,26 +524,96 @@ const { object } = await withOpenRouterKeyFailover((model) =>
 - `OPENROUTER_API_KEY` — single-key fallback (still supported if `OPENROUTER_API_KEYS` is unset)
 - `AI_PROVIDER` — default `openrouter`
 - `AI_MODEL` — default `openrouter/free` (free models router only)
-- `APP_ENV` — `development`/`dev` skips extract rate limits; `production`/`prod` enforces them (falls back to `NODE_ENV` if unset)
-- `REDIS_URL` — required in production/prod for distributed resume-extract rate limits across load-balanced servers (Redis sliding-window counters via sorted sets — not pub/sub)
+- `APP_ENV` — `development`/`dev` skips **429 enforcement**; `production`/`prod` enforces shared Resume AI limits (falls back to `NODE_ENV` if unset). When `REDIS_URL` is set, hits are still recorded in any env so the usage card works.
+- `REDIS_URL` — required in production/prod for distributed Resume AI rate limits (Redis sliding-window sorted sets — not pub/sub). Usage card hides when Redis is unavailable.
+- `RESUME_AI_RATE_LIMIT_PER_MINUTE` — default `3`
+- `RESUME_AI_RATE_LIMIT_PER_HOUR` — default `15`
+- `RESUME_AI_RATE_LIMIT_PER_DAY` — default `40`
+- `BYOK_ENCRYPTION_SECRET` — server-only AES-256-GCM secret for encrypting user OpenRouter keys (`profiles.openrouter_keys_enc`). Required when BYOK is used; missing secret → `503` on encrypt/decrypt (fail closed).
 
-**Resume extract rate limits (production only):**
+**Shared Resume AI rate limits (Extract + Generate):**
 
-- Per authenticated user: **3 / minute**, **15 / hour**, **40 / day**
-- Implemented in `lib/rate-limit.ts` + `lib/resume-extract-rate-limit.ts`
-- Returns `429` with `Retry-After` / `X-RateLimit-*` headers when exceeded
+- One pool per authenticated user: Redis key `resume-ai:{userId}` (`lib/resume-ai-rate-limit.ts`)
+- Windows from env via `getResumeAiRateWindows()` in `lib/rate-limit.ts`
+- Returns `429` with `Retry-After` / `X-RateLimit-*` headers when exceeded **in production only**
 - Missing `REDIS_URL` in production → `503` (fail closed)
+- Usage peek: `GET /api/resume/usage` (auth, no hit) + profile `ResumeAiUsageCard` (60s poll + refresh)
+- Usage card hidden (`available: false`) in development/`dev` **or** when the user has ≥1 BYOK key
+
+**OpenRouter BYOK (profile):**
+
+- UI: `OpenRouterKeysSection` on `/profile` → `GET/POST/DELETE /api/profile/openrouter-keys`
+- On Add: format check + live OpenRouter `GET /api/v1/key` probe (`lib/openrouter-key-validate.ts`) before encrypt/save
+- Ciphertext only in DB (`openrouter_keys_enc`); client sees masked `last4` + `id` (max 5 keys)
+- When BYOK present: Extract/Generate use **only** user keys via `withOpenRouterKeyFailover({ keys })` (no platform fallback); **skip** shared Redis rate limits
+- Invalid/exhausted BYOK keys → clear user error (`BYOK_KEYS_FAILED_USER_MESSAGE`); never fall back to platform keys
+- Helpers: `lib/byok-keys.ts`; migration `insforge/migrations/003_byok_openrouter_keys.sql`
 
 **Rules:**
 
 - Profile extraction uses `openrouter/free` with OpenRouter `response-healing` plugin
-- Temperature `0.3` for extraction / matching / research synthesis; `0.7` for resume generation (later)
-- Max tokens for profile extraction: `800`
-- Validate with Zod (`profileExtractSchema`) before merging into the form
+- Temperature `0.3` for extraction / matching / research synthesis; `0.7` for resume generation
+- Max tokens for profile extraction: `800` (generate uses higher headroom for polished bullets)
+- Validate with Zod (`profileExtractSchema` / `resumeGenerateSchema`) before merging or rendering
 - Use `withOpenRouterKeyFailover` for LLM calls so rate-limited keys rotate automatically
 - Reject non-PDF buffers via `%PDF` magic bytes; do not treat salary-only inference as a successful extract
 - Swap providers by extending `lib/ai/provider.ts` — do not import OpenRouter elsewhere
 - Do not install the raw `openai` package for app LLM calls; use the AI SDK
+
+---
+
+## Motion (`motion`)
+
+**Package:** `motion` — import from `motion/react` only (do not also install `framer-motion`).
+
+**Check first:** ECC motion-ui skill / Context7 Motion docs.
+
+### Profile page usage
+
+```typescript
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
+import { motionTokens, fadeInUp } from "@/lib/motion-tokens";
+```
+
+**Rules:**
+
+- Use Motion for state communication (loading strips, section entrance) — not decorative noise
+- Always call `useReducedMotion()` and skip translate/height animation when reduced
+- Prefer opacity fades; keep durations in `lib/motion-tokens.ts` (`fast` / `normal` / `slow`)
+- Never add hover translate/scale on buttons (project preference)
+- Client Components only (`"use client"`)
+
+---
+
+## shadcn/ui
+
+**Config:** `components.json` (style `radix-nova`, base radix, CSS variables, lucide icons).
+
+**Check first:** shadcn skill / `npx shadcn@latest docs <component>` / Context7.
+
+### Adding components
+
+```bash
+npx shadcn@latest add button card dialog
+```
+
+Install into `components/ui/`. Do not hand-roll primitives that already exist in the registry.
+
+### Theming (JobPilot tokens win)
+
+- Brand / product colors live as `--jp-*` in `app/globals.css` and are exposed via `@theme` (`bg-accent`, `text-text-primary`, `border-border`, …).
+- shadcn semantic vars (`--primary`, `--muted`, …) map onto JobPilot values in `:root`.
+- **Do not** let `@theme inline` overwrite `--color-accent` / `--color-border` / `--color-background` with shadcn’s muted “accent” meaning — brand purple must stay `bg-accent`.
+- Font: Inter via `--font-inter` → `--font-sans` (never Geist unless design changes).
+
+### Project conventions on top of shadcn
+
+- Prefer JobPilot Button variants: `primary` / `secondary` / `muted` / `danger` (aliases of shadcn defaults).
+- `Button` may take `pending` for spinner + `aria-busy` (compose pattern kept for profile UX).
+- Toasts: keep `components/ui/toaster.tsx` (token-styled Sonner) — do not swap to default shadcn sonner without matching bottom-right + semantic colors.
+- Dense form enums/dates: `NativeSelect`. Richer menus: Radix `Select` + `SelectItem`.
+- Use `cn()` from `@/lib/utils` for class merges.
+- Always `cursor-pointer` on clickable controls; no hover translate on buttons.
 
 ---
 
@@ -632,39 +702,18 @@ await posthog.shutdown(); // required — ensures event is sent
 
 ## @react-pdf/renderer
 
-**Check first:** Check AGENTS.md for an installed react-pdf skill. PDF generation APIs can differ from general training knowledge.
+**Check first:** AGENTS.md / Context7 for `@react-pdf/renderer` (`renderToBuffer` is Node-only).
 
-### Resume PDF Generation
+### Resume PDF Generation (Feature 08)
+
+Layout lives in `lib/resume-pdf/DemoResumeDocument.tsx` — visual style matched to `context/templates/demo_resume.pdf` (Helvetica, uppercase section headers, pipe-separated contact, link row, black bullets). Content is built from the saved profile + AI polish (`lib/resume-generate.ts`); do not fill the binary template PDF.
 
 ```typescript
-import { renderToBuffer } from '@react-pdf/renderer'
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
+import { renderResumePdfBuffer } from "@/lib/resume-pdf/DemoResumeDocument";
 
-const styles = StyleSheet.create({
-  page: { padding: 30, fontFamily: 'Helvetica' },
-  section: { marginBottom: 10 },
-  heading: { fontSize: 14, fontWeight: 'bold' },
-  text: { fontSize: 10 },
-})
-
-const ResumePDF = ({ profile }: { profile: Profile }) => (
-  <Document>
-    <Page size="A4" style={styles.page}>
-      <View style={styles.section}>
-        <Text style={styles.heading}>{profile.fullName}</Text>
-        <Text style={styles.text}>{profile.email}</Text>
-      </View>
-    </Page>
-  </Document>
-)
-
-// Generate buffer
-const buffer = await renderToBuffer(<ResumePDF profile={profile} />)
-
-// Upload directly to InsForge Storage (private bucket — same key every time)
-await insforge.storage
-  .from('resumes')
-  .upload(`${userId}/resume.pdf`, buffer)
+const buffer = await renderResumePdfBuffer(pdfModel);
+const file = new File([buffer], "resume.pdf", { type: "application/pdf" });
+await client.storage.from("resumes").upload(`${userId}/resume.pdf`, file);
 ```
 
 **Supported CSS properties:**
@@ -676,9 +725,10 @@ Only use these — others are silently ignored:
 - Server-side only — never import in client components
 - Always use `renderToBuffer` — not `renderToStream` or `PDFDownloadLink`
 - PDF generation only in `app/api/resume/` routes
-- Generated buffer uploaded directly to InsForge Storage — never written to disk
-- Always save public URL to DB after upload
-
+- Generated buffer uploaded as `File`/`Blob` to InsForge Storage — never written to disk
+- Bucket is **private**; after upload save `resume_pdf_url` and preview via authenticated `fetchResumeBlob` (same as Feature 06 View/Download)
+- Hard cap one A4 page (`wrap={false}`); omit empty sections; truncate roles/bullets/summary in `lib/resume-generate.ts`
+- AI polish: temperature `0.7`, `openrouter/free` + `withOpenRouterKeyFailover` (same stack as extract)
 ---
 
 ## pdf-parse

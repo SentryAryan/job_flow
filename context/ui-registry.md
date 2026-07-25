@@ -166,13 +166,17 @@ Authenticated app chrome (Profile / Dashboard / Find Jobs). Distinct from market
 
 ### UI primitives — `components/ui/`
 
-Token-based form primitives (Feature 05). Index barrel allowed only here.
+**shadcn/ui** (radix-nova) + JobPilot tokens. Config: `components.json`. Add via `npx shadcn@latest add <name>`. Index barrel allowed only here.
 
-- **Button** — `rounded-md px-4 py-2 text-sm font-medium`; primary `border border-accent-dark border-b-[3px] border-b-accent-dark bg-accent text-accent-foreground hover:bg-accent-dark`; secondary `border border-border border-b-2 border-b-border-muted bg-surface text-text-primary hover:bg-surface-secondary`; muted (Add) `bg-surface-secondary hover:bg-surface-tertiary` with same elevated gray border; danger `bg-error text-error-foreground border-error hover:bg-error-dark hover:border-error-dark` (full-button solid red hover, not black)
-- **Input / Select / Textarea** — `w-full rounded-md border border-border border-b-2 border-b-border-muted px-3 py-2 text-sm text-text-primary` + filled `bg-surface-secondary` / empty `bg-surface` + `focus:border-accent focus:border-b-accent focus:ring-1 focus:ring-accent`; disabled `bg-surface-secondary text-text-secondary`
-- **Label** — `mb-1.5 block text-xs font-semibold uppercase tracking-wide text-text-secondary`
-- **Card** — `rounded-xl border border-border bg-surface p-6 shadow-[var(--shadow-card)]` (`--shadow-card` in `app/globals.css`)
-- **Tag** — `rounded-md border border-accent bg-accent-light px-2.5 py-1 text-xs font-medium text-accent` + purple remove ×
+- **Button** — shadcn `Button` with JobPilot variants: `default`/`primary` (purple elevated border), `secondary`/`outline` (gray elevated), `muted`, `danger`/`destructive` (solid red hover). Optional `pending` shows decorative `Spinner` + `aria-busy` and disables. Always `cursor-pointer` / `disabled:cursor-not-allowed`. No hover translate. Lucide icons via `data-icon="inline-start"` on profile actions.
+- **Spinner** — lucide `Loader2` + `text-accent`; `size` sm|md; `decorative` inside busy buttons
+- **Progress** — shadcn Progress (`components/ui/progress.tsx`); used by Resume AI usage card
+- **Input / Textarea / NativeSelect** — elevated field chrome (`border-border` + heavier `border-b-border-muted`), focus accent ring; `NativeSelect` for dense option lists (months/years/enums)
+- **Select** — Radix shadcn Select (`SelectTrigger` / `SelectContent` / `SelectItem`) for richer menus
+- **Label** — Radix Label; profile default `mb-1.5 block text-xs font-semibold uppercase tracking-wide text-text-secondary`
+- **Card** — compose with `CardContent` (and Header/Title/Footer as needed); `border-border` + `shadow-[var(--shadow-card)]`
+- **Badge** — shadcn Badge available
+- **Tag** — project chip (`border-accent bg-accent-light`) for skills/industry; not from shadcn
 
 ### Profile page — `app/profile/page.tsx`
 
@@ -185,15 +189,30 @@ Client page wrapped in `AuthGuard`. Loads profile via `fetchProfile` (`lib/profi
 
 Alert card when `missing.length > 0`. Red warning icon, title, body, uppercase missing tags (`text-xs font-semibold uppercase tracking-wide text-error`), SVG progress ring (`stroke-error`, percent centered).
 
-- Card: same Card primitive + `border-error/40`; layout `flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between`
+- Card: same Card + `CardContent` + `border-error/40`; layout `flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between`
+
+### ResumeAiUsageCard — `components/profile/ResumeAiUsageCard.tsx`
+
+Profile-only card above Resume: three Progress rows (minute / hour / day) showing **used / limit** for the **shared** Extract + Generate pool. Copy states limits are combined. Refresh icon + 60s poll (pauses when tab hidden). Hides when `available: false` (no Redis, development/`dev`, or user has BYOK keys). Ref `refresh()` after extract/generate settles or BYOK keys change.
+
+### OpenRouterKeysSection — `components/profile/OpenRouterKeysSection.tsx`
+
+Profile Card for optional personal OpenRouter keys: paste one key → Add (server verifies with OpenRouter before save). Lists masked `••••last4` with Remove. User-facing copy explains using your own credits (no JobPilot limits) vs removing keys to return to JobPilot keys + limits. Status banner while keys are active. Max 5 keys; ciphertext never returned to the client. Calls `onKeysChanged` so the usage card can refresh/hide.
 
 ### ResumeUpload — `components/profile/ResumeUpload.tsx`
 
-Resume card: title + description; dashed dropzone with purple cloud-upload icon; Select Resume opens hidden PDF file input (≤5MB) → `uploadResume`. When `resume_pdf_url` is set, shows an authenticated inline PDF preview (`fetchResumeBlob` → blob URL iframe) with **Expand** (modal) and **Download**, plus **Extract from Resume** (primary/purple accent button; Feature 07: POST `/api/resume/extract` → merge into form via `onExtracted`). Generate Resume stays disabled (Feature 08).
+Resume card: title + description; dashed dropzone with purple cloud-upload icon; Select Resume opens hidden PDF file input (≤5MB) → `uploadResume` (upload overlay + `Button pending` spinner). When `resume_pdf_url` is set, shows authenticated PDF preview with Expand/Download. **Extract from Resume** (`FileSearch`) and **Generate Resume** (`FileText`) share equal sizing (`min-h-11` + `sm:w-[15.5rem]`). Long ops show `InlineActionStatus`. Extract: POST `/api/resume/extract`. Generate: save-first dirty gate → POST `/api/resume/generate` → preview refresh; PostHog `resume_generated`. Calls `onAiActionSettled` to refresh usage card.
 
 ### ProfileForm — `components/profile/ProfileForm.tsx`
 
-Orchestrates sections with `border-t border-border` dividers; Save Profile calls `saveProfile`. **Clear all fields** (`danger`/red, beside Save) resets editable form state via `clearProfileFormFields` while keeping `resume_pdf_url` / email / id / timestamps. Success/error feedback via Sonner toasts (`toast.success` / `toast.error`) — no inline status text above the button. Sections: `PersonalInfoSection`, `ProfessionalInfoSection` (+ `TagInput`), `WorkExperienceSection` (max 3, “+ Add role”, role blocks use `bg-surface-secondary`), `EducationSection`, `JobPreferencesSection`.
+Orchestrates sections with `border-t border-border` dividers; Save Profile (`Save` icon) calls `saveProfile` with `Button pending` spinner and form `fieldset` disabled + opacity while saving. **Clear all fields** (`Eraser` icon, `danger`/red, beside Save) resets editable form state via `clearProfileFormFields` while keeping `resume_pdf_url` / email / id / timestamps. Success/error feedback via Sonner toasts — no inline status text above the button. Sections: `PersonalInfoSection`, `ProfessionalInfoSection` (+ `TagInput`), `WorkExperienceSection` (max 3, “+ Add role”, role blocks use `bg-surface-secondary`), `EducationSection`, `JobPreferencesSection`.
+
+### Profile motion — `MotionSection` / `InlineActionStatus` / `Spinner`
+
+- `components/profile/MotionSection.tsx` — soft fade/slide entrance for CompletionBanner → Resume → Form (`motion/react`, respects `useReducedMotion`)
+- `components/profile/InlineActionStatus.tsx` — polite live-region status strip for upload/extract/generate
+- `components/ui/spinner.tsx` + `Button pending` — lucide spinner with `text-accent`
+- Tokens: `lib/motion-tokens.ts`
 
 ### Toaster — `components/ui/toaster.tsx`
 

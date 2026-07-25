@@ -67,7 +67,8 @@ describe("getLanguageModel / OpenRouter key failover", () => {
   });
 
   it("detects rate-limit style errors", async () => {
-    const { isOpenRouterRateLimitError } = await loadProvider();
+    const { isOpenRouterRateLimitError, isOpenRouterAuthError } =
+      await loadProvider();
     expect(
       isOpenRouterRateLimitError(Object.assign(new Error("rate limited"), { statusCode: 429 })),
     ).toBe(true);
@@ -75,6 +76,10 @@ describe("getLanguageModel / OpenRouter key failover", () => {
       isOpenRouterRateLimitError(new Error("Free models limit exceeded for today")),
     ).toBe(true);
     expect(isOpenRouterRateLimitError(new Error("schema mismatch"))).toBe(false);
+    expect(
+      isOpenRouterAuthError(Object.assign(new Error("Unauthorized"), { statusCode: 401 })),
+    ).toBe(true);
+    expect(isOpenRouterAuthError(new Error("Invalid API key"))).toBe(true);
   });
 
   it("retries with the next key when the current key is rate-limited", async () => {
@@ -105,5 +110,29 @@ describe("getLanguageModel / OpenRouter key failover", () => {
 
     await expect(withOpenRouterKeyFailover(run)).rejects.toThrow("schema failed");
     expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses injected keys override and ignores platform env keys", async () => {
+    process.env.OPENROUTER_API_KEYS = "sk-platform-a,sk-platform-b";
+    const { withOpenRouterKeyFailover } = await loadProvider();
+
+    const run = vi
+      .fn()
+      .mockRejectedValueOnce(
+        Object.assign(new Error("Too Many Requests"), { statusCode: 429 }),
+      )
+      .mockResolvedValueOnce({ ok: true });
+
+    const result = await withOpenRouterKeyFailover(run, {
+      keys: ["sk-byok-dead", "sk-byok-live"],
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(mockCreateOpenRouter).toHaveBeenNthCalledWith(1, {
+      apiKey: "sk-byok-dead",
+    });
+    expect(mockCreateOpenRouter).toHaveBeenNthCalledWith(2, {
+      apiKey: "sk-byok-live",
+    });
   });
 });

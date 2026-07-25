@@ -7,6 +7,7 @@ const {
   mockGenerateObject,
   mockGetLanguageModel,
   mockEnforceRateLimit,
+  mockLoadByokKeys,
   FakeNoObjectGeneratedError,
 } = vi.hoisted(() => {
   class FakeNoObjectGeneratedError extends Error {
@@ -32,7 +33,20 @@ const {
     mockExtractPdfContent: vi.fn(),
     mockGenerateObject: vi.fn(),
     mockGetLanguageModel: vi.fn(() => "mock-model"),
-    mockEnforceRateLimit: vi.fn(async () => ({ enforced: false })),
+    mockEnforceRateLimit: vi.fn(async (): Promise<
+      | { enforced: false }
+      | {
+          enforced: true;
+          result: {
+            allowed: boolean;
+            limit: number;
+            remaining: number;
+            resetAt: number;
+            blockedBy?: string;
+          };
+        }
+    > => ({ enforced: false })),
+    mockLoadByokKeys: vi.fn(async () => [] as string[]),
     FakeNoObjectGeneratedError,
   };
 });
@@ -54,8 +68,8 @@ vi.mock("@/lib/ai/provider", () => ({
   ) => run(mockGetLanguageModel()),
 }));
 
-vi.mock("@/lib/resume-extract-rate-limit", () => ({
-  enforceResumeExtractRateLimit: mockEnforceRateLimit,
+vi.mock("@/lib/resume-ai-rate-limit", () => ({
+  enforceResumeAiRateLimit: mockEnforceRateLimit,
   rateLimitResponseHeaders: (result: {
     limit: number;
     remaining: number;
@@ -66,6 +80,14 @@ vi.mock("@/lib/resume-extract-rate-limit", () => ({
     "X-RateLimit-Reset": String(Math.ceil(result.resetAt / 1000)),
     "Retry-After": "60",
   }),
+}));
+
+vi.mock("@/lib/byok-keys", () => ({
+  loadDecryptedOpenRouterKeys: mockLoadByokKeys,
+}));
+
+vi.mock("@/lib/insforge-server", () => ({
+  createAuthedInsforgeClient: vi.fn(() => ({})),
 }));
 
 vi.mock("ai", () => ({
@@ -104,6 +126,7 @@ describe("POST /api/resume/extract", () => {
       accessToken: "token",
     });
     mockEnforceRateLimit.mockResolvedValue({ enforced: false });
+    mockLoadByokKeys.mockResolvedValue([]);
     process.env.OPENROUTER_API_KEY = "test-key";
     process.env.APP_ENV = "development";
   });
@@ -143,6 +166,46 @@ describe("POST /api/resume/extract", () => {
     });
     expect(response.headers.get("Retry-After")).toBeTruthy();
     expect(mockGenerateObject).not.toHaveBeenCalled();
+  });
+
+  it("skips shared rate limits when BYOK keys are present", async () => {
+    mockLoadByokKeys.mockResolvedValue(["sk-or-v1-user-key-abcdef"]);
+    mockEnforceRateLimit.mockResolvedValue({
+      enforced: true,
+      result: {
+        allowed: false,
+        limit: 3,
+        remaining: 0,
+        resetAt: Date.now() + 60_000,
+        blockedBy: "1m",
+      },
+    });
+    mockExtractPdfContent.mockResolvedValue({ text: "a".repeat(80), links: [] });
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        full_name: "Jane Doe",
+        phone: null,
+        location: "San Francisco, CA",
+        current_title: "Engineer",
+        experience_level: "mid",
+        years_experience: 4,
+        skills: ["TypeScript"],
+        industries: [],
+        work_experience: [],
+        education: {},
+        job_titles_seeking: [],
+        remote_preference: null,
+        preferred_locations: [],
+        salary_expectation: null,
+        linkedin_url: null,
+        portfolio_url: null,
+        work_authorization: null,
+      },
+    });
+
+    const response = await postWithFile(pdfFile());
+    expect(response.status).toBe(200);
+    expect(mockEnforceRateLimit).not.toHaveBeenCalled();
   });
 
   it("returns 400 when resume file is missing", async () => {

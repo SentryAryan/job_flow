@@ -4,7 +4,7 @@ import { useRef } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import type { WorkExperienceRole } from "@/types";
 
@@ -152,7 +152,7 @@ export function WorkExperienceSection({
                 <div>
                   <Label>Start Date</Label>
                   <div className="grid grid-cols-2 gap-2">
-                    <Select
+                    <NativeSelect
                       aria-label={`Start month role ${index + 1}`}
                       value={start.month}
                       onChange={(e) =>
@@ -170,8 +170,8 @@ export function WorkExperienceSection({
                           {name}
                         </option>
                       ))}
-                    </Select>
-                    <Select
+                    </NativeSelect>
+                    <NativeSelect
                       aria-label={`Start year role ${index + 1}`}
                       value={start.year}
                       onChange={(e) =>
@@ -186,13 +186,13 @@ export function WorkExperienceSection({
                           {year}
                         </option>
                       ))}
-                    </Select>
+                    </NativeSelect>
                   </div>
                 </div>
                 <div>
                   <Label>End Date</Label>
                   <div className="grid grid-cols-2 gap-2">
-                    <Select
+                    <NativeSelect
                       aria-label={`End month role ${index + 1}`}
                       value={end.month}
                       disabled={role.is_current}
@@ -212,8 +212,8 @@ export function WorkExperienceSection({
                           {name}
                         </option>
                       ))}
-                    </Select>
-                    <Select
+                    </NativeSelect>
+                    <NativeSelect
                       aria-label={`End year role ${index + 1}`}
                       value={end.year}
                       disabled={role.is_current}
@@ -230,7 +230,7 @@ export function WorkExperienceSection({
                           {year}
                         </option>
                       ))}
-                    </Select>
+                    </NativeSelect>
                   </div>
                   <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm text-text-primary">
                     <input

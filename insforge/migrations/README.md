@@ -8,6 +8,8 @@ Bootstrap order for a **new** InsForge project:
 
 `001_initial_schema.sql` is **not** idempotent — do not re-run on an existing database. Use `002_*` and later numbered files for follow-up changes.
 
+4. Run `003_byok_openrouter_keys.sql` (encrypted OpenRouter BYOK column on `profiles`).
+
 ## Storage object key (required for RLS)
 
 - Bucket: `resumes`

@@ -1,34 +1,18 @@
-import type { TextareaHTMLAttributes } from "react";
+import * as React from "react";
 
-type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement>;
+import { cn } from "@/lib/utils";
 
-function hasFilledValue(value: TextareaProps["value"]): boolean {
-  if (value == null) return false;
-  return String(value).length > 0;
-}
-
-const FIELD_BORDER =
-  "border border-border border-b-2 border-b-border-muted";
-
-export function Textarea({
-  className = "",
-  value,
-  defaultValue,
-  ...props
-}: TextareaProps) {
-  const filled =
-    value !== undefined
-      ? hasFilledValue(value)
-      : hasFilledValue(defaultValue as TextareaProps["value"]);
-
+function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
   return (
     <textarea
-      value={value}
-      defaultValue={defaultValue}
-      className={`w-full rounded-md ${FIELD_BORDER} px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:border-b-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed disabled:bg-surface-secondary disabled:text-text-secondary ${
-        filled ? "bg-surface-secondary" : "bg-surface"
-      } ${className}`}
+      data-slot="textarea"
+      className={cn(
+        "flex field-sizing-content min-h-20 w-full rounded-md border border-border border-b-2 border-b-border-muted bg-surface px-3 py-2 text-sm text-text-primary transition-colors outline-none placeholder:text-text-muted focus-visible:border-accent focus-visible:border-b-accent focus-visible:ring-1 focus-visible:ring-accent disabled:cursor-not-allowed disabled:bg-surface-secondary disabled:text-text-secondary disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-1 aria-invalid:ring-destructive/30 md:text-sm",
+        className,
+      )}
       {...props}
     />
   );
 }
+
+export { Textarea };
