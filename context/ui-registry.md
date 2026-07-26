@@ -69,7 +69,7 @@ Shared chrome for marketing and authenticated pages (home, login, profile, find-
 - Inner: `mx-auto flex h-16 max-w-6xl items-center justify-between px-6` — Logo | nav | CTA
 - Logo links to `/` (homepage always reachable)
 - Nav links: lucide icons (`LayoutGrid` / `Search` / `User`) + label; active `border-accent text-accent` underline; inactive `text-text-dark`
-- CTA: signed out → dark **Get Started** → `/login`; signed in → shadcn `Avatar` + `DropdownMenu` (`NavbarCta`) with name/email, Profile link, Sign out. Menu opens on hover; click pins it open until outside click / second click.
+- CTA: signed out → dark **Get Started** → `/login`; signed in → shadcn `Avatar` + `DropdownMenu` (`NavbarCta`) with name/email, Profile link, Sign out (`user_signed_out` + analytics reset + redirect `/`). Auth-loading CTA uses `Skeleton` (rounded). Menu opens on hover; click pins it open until outside click / second click. Timers cleared on unmount.
 
 ### AuthGuard — `components/auth/AuthGuard.tsx`
 

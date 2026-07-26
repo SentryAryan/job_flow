@@ -10,7 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { MatchFilter, SortOption } from "@/lib/find-jobs-list";
+import {
+  isMatchFilter,
+  isSortOption,
+  type MatchFilter,
+  type SortOption,
+} from "@/lib/find-jobs-list";
 import { cn } from "@/lib/utils";
 
 type JobFiltersProps = {
@@ -57,9 +62,11 @@ export function JobFilters({
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         <Select
           value={matchFilter}
-          onValueChange={(value) =>
-            onMatchFilterChange(value as MatchFilter)
-          }
+          onValueChange={(value) => {
+            if (isMatchFilter(value)) {
+              onMatchFilterChange(value);
+            }
+          }}
         >
           <SelectTrigger
             aria-label="Filter by match level"
@@ -76,7 +83,11 @@ export function JobFilters({
 
         <Select
           value={sort}
-          onValueChange={(value) => onSortChange(value as SortOption)}
+          onValueChange={(value) => {
+            if (isSortOption(value)) {
+              onSortChange(value);
+            }
+          }}
         >
           <SelectTrigger aria-label="Sort jobs" className="w-auto min-w-[8.5rem]">
             <SelectValue />

@@ -6,6 +6,8 @@ import {
     formatRelativeFoundAt,
     getMatchScoreBarClass,
     getPaginationItems,
+    isMatchFilter,
+    isSortOption,
     paginateJobs,
     sortJobs,
     type MatchFilter,
@@ -191,6 +193,22 @@ describe("formatRelativeFoundAt", () => {
     expect(
       formatRelativeFoundAt("2026-07-23T10:00:00.000Z", now),
     ).toBe("3 days ago");
+  });
+});
+
+describe("isMatchFilter / isSortOption", () => {
+  it("narrows valid match filters", () => {
+    expect(isMatchFilter("all")).toBe(true);
+    expect(isMatchFilter("high")).toBe(true);
+    expect(isMatchFilter("low")).toBe(true);
+    expect(isMatchFilter("medium")).toBe(false);
+  });
+
+  it("narrows valid sort options", () => {
+    expect(isSortOption("match_score")).toBe(true);
+    expect(isSortOption("newest")).toBe(true);
+    expect(isSortOption("oldest")).toBe(true);
+    expect(isSortOption("salary")).toBe(false);
   });
 });
 

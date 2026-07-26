@@ -2,7 +2,8 @@
 
 import { LogOut, User } from "lucide-react";
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 import { useUser } from "@/components/auth/AuthProvider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -14,10 +15,12 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { captureEvent } from "@/lib/analytics";
+import { Skeleton } from "@/components/ui/skeleton";
+import { captureEvent, resetAnalytics } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
 const CLOSE_DELAY_MS = 180;
+const IGNORE_CLOSE_MS = 100;
 
 function displayNameFromUser(email: string, name?: string): string {
   const trimmed = name?.trim();
@@ -39,10 +42,14 @@ function initialsFromName(name: string): string {
  * avatar menu (hover open, click to pin) when signed in.
  */
 export function NavbarCta() {
+  const router = useRouter();
   const { user, isLoaded, signOut } = useUser();
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ignoreCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const ignoreNextCloseRef = useRef(false);
 
   const clearCloseTimer = (): void => {
@@ -51,6 +58,20 @@ export function NavbarCta() {
       closeTimerRef.current = null;
     }
   };
+
+  const clearIgnoreCloseTimer = (): void => {
+    if (ignoreCloseTimerRef.current) {
+      clearTimeout(ignoreCloseTimerRef.current);
+      ignoreCloseTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      clearCloseTimer();
+      clearIgnoreCloseTimer();
+    };
+  }, []);
 
   const openOnHover = (): void => {
     clearCloseTimer();
@@ -65,10 +86,18 @@ export function NavbarCta() {
     }, CLOSE_DELAY_MS);
   };
 
+  const handleSignOut = (): void => {
+    captureEvent("user_signed_out");
+    resetAnalytics();
+    void signOut().then(() => {
+      router.replace("/");
+    });
+  };
+
   if (!isLoaded) {
     return (
-      <div
-        className="size-9 shrink-0 animate-pulse rounded-full bg-surface-secondary"
+      <Skeleton
+        className="size-9 shrink-0 rounded-full"
         aria-hidden
       />
     );
@@ -133,9 +162,11 @@ export function NavbarCta() {
             setPinned(true);
             setOpen(true);
             ignoreNextCloseRef.current = true;
-            window.setTimeout(() => {
+            clearIgnoreCloseTimer();
+            ignoreCloseTimerRef.current = setTimeout(() => {
               ignoreNextCloseRef.current = false;
-            }, 100);
+              ignoreCloseTimerRef.current = null;
+            }, IGNORE_CLOSE_MS);
           }}
         >
           <Avatar size="default">
@@ -177,7 +208,7 @@ export function NavbarCta() {
           variant="destructive"
           className="cursor-pointer"
           onSelect={() => {
-            void signOut();
+            handleSignOut();
           }}
         >
           <LogOut />

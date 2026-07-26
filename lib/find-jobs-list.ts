@@ -10,6 +10,21 @@ export type MockJobRow = {
 export type MatchFilter = "all" | "high" | "low";
 export type SortOption = "match_score" | "newest" | "oldest";
 
+export const MATCH_FILTERS = ["all", "high", "low"] as const satisfies readonly MatchFilter[];
+export const SORT_OPTIONS = [
+  "match_score",
+  "newest",
+  "oldest",
+] as const satisfies readonly SortOption[];
+
+export function isMatchFilter(value: string): value is MatchFilter {
+  return (MATCH_FILTERS as readonly string[]).includes(value);
+}
+
+export function isSortOption(value: string): value is SortOption {
+  return (SORT_OPTIONS as readonly string[]).includes(value);
+}
+
 export const FIND_JOBS_PAGE_SIZE = 6;
 
 export const HIGH_MATCH_THRESHOLD = 70;

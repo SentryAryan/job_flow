@@ -7,7 +7,6 @@ import { useEffect } from "react";
 
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useUser } from "@/components/auth/AuthProvider";
-import { SignOutButton } from "@/components/auth/SignOutButton";
 import { DashboardPageSkeleton } from "@/components/layout/DashboardPageSkeleton";
 import Navbar from "@/components/layout/Navbar";
 import { captureEvent } from "@/lib/analytics";
@@ -27,7 +26,6 @@ function DashboardContent() {
           You are signed in
         </h1>
         <p className="text-sm text-text-secondary">{user?.email}</p>
-        <SignOutButton />
       </main>
     </div>
   );
