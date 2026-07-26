@@ -44,7 +44,10 @@ function jsonError(
   error: string,
   headers?: HeadersInit,
 ) {
-  return NextResponse.json({ success: false, error }, { status, headers });
+  return NextResponse.json(
+    { success: false, error, data: null },
+    { status, headers },
+  );
 }
 
 async function removeResumeKeys(

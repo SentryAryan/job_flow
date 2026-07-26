@@ -534,6 +534,7 @@ const { object } = await withOpenRouterKeyFailover((model) =>
 **Shared Resume AI rate limits (Extract + Generate):**
 
 - One pool per authenticated user: Redis key `resume-ai:{userId}` (`lib/resume-ai-rate-limit.ts`)
+- **Deploy note:** this namespace replaced the older `resume-extract:{userId}` keys — counters reset once on deploy; old Redis keys expire via their sliding windows
 - Windows from env via `getResumeAiRateWindows()` in `lib/rate-limit.ts`
 - Returns `429` with `Retry-After` / `X-RateLimit-*` headers when exceeded **in production only**
 - Missing `REDIS_URL` in production → `503` (fail closed)
@@ -547,6 +548,7 @@ const { object } = await withOpenRouterKeyFailover((model) =>
 - Ciphertext only in DB (`openrouter_keys_enc`); client sees masked `last4` + `id` (max 5 keys)
 - When BYOK present: Extract/Generate use **only** user keys via `withOpenRouterKeyFailover({ keys })` (no platform fallback); **skip** shared Redis rate limits
 - Invalid/exhausted BYOK keys → clear user error (`BYOK_KEYS_FAILED_USER_MESSAGE`); never fall back to platform keys
+- Undecryptable stored rows (corrupt ciphertext or post-rotation leftovers) are skipped per key so users can still add/remove keys; missing `BYOK_ENCRYPTION_SECRET` still fails closed
 - Helpers: `lib/byok-keys.ts`; migration `insforge/migrations/003_byok_openrouter_keys.sql`
 
 **Rules:**

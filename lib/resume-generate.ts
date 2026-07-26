@@ -261,7 +261,7 @@ export function parseMarkdownGenerateText(
 
   if (experienceBody) {
     const roleBlocks = experienceBody.split(/(?=^\*\*[^*].+\*\*)/m).filter(Boolean);
-    const unmatched = [...profile.work_experience.keys()];
+    let unmatched = [...profile.work_experience.keys()];
 
     for (const block of roleBlocks) {
       const header = /^\*\*(.+?)\*\*/.exec(block.trim());
@@ -285,8 +285,7 @@ export function parseMarkdownGenerateText(
       if (roleIndex == null) continue;
 
       experienceEntries[roleIndex] = { bullets };
-      const removeAt = unmatched.indexOf(roleIndex);
-      if (removeAt >= 0) unmatched.splice(removeAt, 1);
+      unmatched = unmatched.filter((index) => index !== roleIndex);
     }
   }
 

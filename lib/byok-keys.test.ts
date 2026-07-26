@@ -3,10 +3,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
     createStoredKey,
     decryptKey,
+    decryptStoredPlaintexts,
     encryptKey,
     isValidOpenRouterKeyFormat,
     maskLast4,
     parseStoredKeys,
+    tryDecryptKey,
 } from "@/lib/byok-keys";
 
 describe("byok-keys crypto", () => {
@@ -61,5 +63,25 @@ describe("byok-keys crypto", () => {
     expect(() => encryptKey("sk-or-v1-abcdefghijkl")).toThrow(
       /BYOK_ENCRYPTION_SECRET/,
     );
+  });
+
+  it("tryDecryptKey skips corrupt ciphertext but rethrows missing secret", () => {
+    vi.stubEnv("BYOK_ENCRYPTION_SECRET", "test-secret-for-unit-tests");
+    const good = createStoredKey("sk-or-v1-good-key-zzzz");
+    const corrupt = {
+      ...good,
+      id: "corrupt",
+      ciphertext: "not-valid-base64-gcm!!!",
+      tag: "AAAA",
+    };
+
+    expect(tryDecryptKey(good)).toBe("sk-or-v1-good-key-zzzz");
+    expect(tryDecryptKey(corrupt)).toBeNull();
+
+    const plaintexts = decryptStoredPlaintexts([good, corrupt]);
+    expect(plaintexts).toEqual(["sk-or-v1-good-key-zzzz"]);
+
+    vi.stubEnv("BYOK_ENCRYPTION_SECRET", "");
+    expect(() => tryDecryptKey(good)).toThrow(/BYOK_ENCRYPTION_SECRET/);
   });
 });

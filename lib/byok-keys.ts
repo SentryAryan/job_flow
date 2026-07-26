@@ -78,6 +78,47 @@ export function decryptKey(stored: Pick<StoredByokKey, "ciphertext" | "iv" | "ta
   return decrypted.toString("utf8");
 }
 
+/**
+ * Decrypt one stored key. Returns null for corrupt/rotated-secret rows
+ * so callers can skip them. Missing `BYOK_ENCRYPTION_SECRET` still throws
+ * (fail closed).
+ */
+export function tryDecryptKey(
+  stored: Pick<StoredByokKey, "id" | "ciphertext" | "iv" | "tag">,
+): string | null {
+  try {
+    const plaintext = decryptKey(stored).trim();
+    return plaintext || null;
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes("BYOK_ENCRYPTION_SECRET")
+    ) {
+      throw error;
+    }
+    console.warn(
+      "[byok-keys] skipping undecryptable OpenRouter key",
+      typeof stored.id === "string" ? stored.id : "(unknown)",
+    );
+    return null;
+  }
+}
+
+/** Decrypt all stored keys, skipping undecryptable entries. */
+export function decryptStoredPlaintexts(stored: StoredByokKey[]): string[] {
+  const plaintext: string[] = [];
+  const seen = new Set<string>();
+
+  for (const item of stored) {
+    const key = tryDecryptKey(item);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    plaintext.push(key);
+  }
+
+  return plaintext;
+}
+
 export function parseStoredKeys(value: unknown): StoredByokKey[] {
   if (!Array.isArray(value)) return [];
   const keys: StoredByokKey[] = [];
@@ -157,18 +198,7 @@ export async function loadDecryptedOpenRouterKeys(
 ): Promise<string[]> {
   const stored = await loadStoredByokKeys(userId, client);
   if (stored.length === 0) return [];
-
-  const plaintext: string[] = [];
-  const seen = new Set<string>();
-
-  for (const item of stored) {
-    const key = decryptKey(item).trim();
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    plaintext.push(key);
-  }
-
-  return plaintext;
+  return decryptStoredPlaintexts(stored);
 }
 
 export async function saveStoredByokKeys(

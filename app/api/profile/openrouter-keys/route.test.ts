@@ -43,7 +43,12 @@ vi.mock("@/lib/byok-keys", async () => {
     loadStoredByokKeys: mockLoadStored,
     saveStoredByokKeys: mockSaveStored,
     createStoredKey: mockCreateStoredKey,
-    decryptKey: (stored: { last4: string }) => `sk-or-v1-existing-${stored.last4}`,
+    decryptKey: (stored: { last4: string }) =>
+      `sk-or-v1-existing-${stored.last4}`,
+    decryptStoredPlaintexts: (
+      stored: Array<{ last4: string }>,
+    ): string[] =>
+      stored.map((item) => `sk-or-v1-existing-${item.last4}`),
   };
 });
 

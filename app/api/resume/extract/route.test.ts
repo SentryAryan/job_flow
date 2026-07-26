@@ -143,6 +143,7 @@ describe("POST /api/resume/extract", () => {
     await expect(response.json()).resolves.toEqual({
       success: false,
       error: "Unauthorized",
+      data: null,
     });
   });
 
@@ -236,6 +237,7 @@ describe("POST /api/resume/extract", () => {
     await expect(response.json()).resolves.toEqual({
       success: false,
       error: EMPTY_RESUME_TEXT_ERROR,
+      data: null,
     });
     expect(mockGenerateObject).not.toHaveBeenCalled();
   });

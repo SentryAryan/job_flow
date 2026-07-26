@@ -213,6 +213,7 @@ describe("POST /api/resume/generate", () => {
     await expect(response.json()).resolves.toEqual({
       success: false,
       error: "Unauthorized",
+      data: null,
     });
   });
 

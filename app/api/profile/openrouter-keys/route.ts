@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/api-auth";
 import {
     createStoredKey,
-    decryptKey,
+    decryptStoredPlaintexts,
     isValidOpenRouterKeyFormat,
     loadStoredByokKeys,
     MAX_BYOK_KEYS,
@@ -125,10 +125,7 @@ export async function POST(request: Request) {
     const client = createAuthedInsforgeClient(auth.accessToken);
     const existing = await loadStoredByokKeys(auth.user.id, client);
 
-    const existingPlain = new Set<string>();
-    for (const stored of existing) {
-      existingPlain.add(decryptKey(stored).trim());
-    }
+    const existingPlain = new Set(decryptStoredPlaintexts(existing));
 
     const next: StoredByokKey[] = [...existing];
     for (const plaintext of incoming) {
