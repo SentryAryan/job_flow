@@ -119,7 +119,7 @@ function asEducation(value: unknown): Profile["education"] {
   };
 }
 
-function mapRowToProfile(row: Record<string, unknown>): Profile {
+export function mapRowToProfile(row: Record<string, unknown>): Profile {
   return {
     id: String(row.id),
     full_name: typeof row.full_name === "string" ? row.full_name : null,

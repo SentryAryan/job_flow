@@ -10,12 +10,14 @@ const {
   mockToastSuccess,
   mockToastError,
   mockGetValidAccessToken,
+  mockCaptureEvent,
 } = vi.hoisted(() => ({
   mockUploadResume: vi.fn(),
   mockFetchResumeBlob: vi.fn(),
   mockToastSuccess: vi.fn(),
   mockToastError: vi.fn(),
   mockGetValidAccessToken: vi.fn(),
+  mockCaptureEvent: vi.fn(),
 }));
 
 vi.mock("@/lib/profile", () => ({
@@ -29,6 +31,10 @@ vi.mock("@/lib/insforge-client", () => ({
       getValidAccessToken: mockGetValidAccessToken,
     }),
   },
+}));
+
+vi.mock("@/lib/analytics", () => ({
+  captureEvent: mockCaptureEvent,
 }));
 
 vi.mock("sonner", () => ({
@@ -48,16 +54,20 @@ const resumeUrl =
 function renderUpload(
   props: Partial<{
     resumePdfUrl: string | null;
+    isDirty: boolean;
     onUploaded: (profile: Profile) => void;
     onExtracted: (extracted: ProfileExtract) => void;
+    onGenerated: (resumePdfUrl: string) => void;
   }> = {},
 ) {
   return render(
     <ResumeUpload
       userId="user-1"
       resumePdfUrl={props.resumePdfUrl ?? null}
+      isDirty={props.isDirty}
       onUploaded={props.onUploaded ?? vi.fn()}
       onExtracted={props.onExtracted ?? vi.fn()}
+      onGenerated={props.onGenerated}
     />,
   );
 }
@@ -349,6 +359,58 @@ describe("ResumeUpload", () => {
       expect(
         screen.getByRole("button", { name: "Extract from Resume" }),
       ).toBeEnabled();
+    });
+  });
+
+  it("toasts save-first when Generate is clicked while dirty", async () => {
+    const user = userEvent.setup();
+    renderUpload({ isDirty: true });
+
+    await user.click(
+      screen.getByRole("button", { name: /Generate Resume/i }),
+    );
+
+    expect(mockToastError).toHaveBeenCalledWith(
+      "Save your profile before generating",
+    );
+  });
+
+  it("posts to generate API and calls onGenerated on success", async () => {
+    const user = userEvent.setup();
+    const onGenerated = vi.fn();
+    const generatedUrl =
+      "https://example.insforge.app/api/storage/buckets/resumes/objects/user-1%2Fresume.pdf";
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: { resume_pdf_url: generatedUrl },
+        }),
+      }),
+    );
+
+    renderUpload({ onGenerated });
+
+    await user.click(
+      screen.getByRole("button", { name: /Generate Resume/i }),
+    );
+
+    await waitFor(() => {
+      expect(onGenerated).toHaveBeenCalledWith(generatedUrl);
+      expect(mockToastSuccess).toHaveBeenCalledWith(
+        "Resume generated from your profile",
+      );
+      expect(mockCaptureEvent).toHaveBeenCalledWith("resume_generated", {
+        userId: "user-1",
+      });
+    });
+
+    expect(fetch).toHaveBeenCalledWith("/api/resume/generate", {
+      method: "POST",
+      headers: { Authorization: "Bearer jwt-token" },
     });
   });
 });

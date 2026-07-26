@@ -1,14 +1,22 @@
 "use client";
 
+import { FileSearch, FileText } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { InlineActionStatus } from "@/components/profile/InlineActionStatus";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
+import { captureEvent } from "@/lib/analytics";
 import { insforge } from "@/lib/insforge-client";
 import { fetchResumeBlob, uploadResume } from "@/lib/profile";
 import type { ProfileExtract } from "@/lib/resume-extract";
 import type { Profile } from "@/types";
+
+/** Shared sizing so Extract and Generate actions align visually. */
+const RESUME_ACTION_BTN =
+  "w-full min-h-11 shrink-0 py-3 text-sm font-medium sm:w-[15.5rem]";
 
 function CloudUploadIcon() {
   return (
@@ -26,28 +34,6 @@ function CloudUploadIcon() {
       <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
       <path d="M12 12v9" />
       <path d="m16 16-4-4-4 4" />
-    </svg>
-  );
-}
-
-function DocumentIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <path d="M14 2v6h6" />
-      <path d="M16 13H8" />
-      <path d="M16 17H8" />
-      <path d="M10 9H8" />
     </svg>
   );
 }
@@ -76,8 +62,14 @@ function ExpandIcon() {
 type ResumeUploadProps = {
   userId: string;
   resumePdfUrl: string | null;
+  /** True when form differs from last saved/loaded profile. */
+  isDirty?: boolean;
   onUploaded: (profile: Profile) => void;
   onExtracted: (extracted: ProfileExtract) => void;
+  /** Called after a successful generate with the new storage URL. */
+  onGenerated?: (resumePdfUrl: string) => void;
+  /** Called after extract or generate finishes (success or failure) for usage refresh. */
+  onAiActionSettled?: () => void;
 };
 
 type ResumePreviewProps = {
@@ -151,10 +143,7 @@ function ResumePreview({
         <div className="relative min-h-72 bg-surface-secondary">
           {loading ? (
             <div className="flex min-h-72 items-center justify-center gap-2 text-sm text-text-secondary">
-              <span
-                className="h-5 w-5 animate-spin rounded-full border-2 border-border border-t-accent"
-                aria-hidden="true"
-              />
+              <Spinner size="md" label="Loading preview" />
               Loading preview…
             </div>
           ) : null}
@@ -221,14 +210,18 @@ function ResumePreview({
 export function ResumeUpload({
   userId,
   resumePdfUrl,
+  isDirty = false,
   onUploaded,
   onExtracted,
+  onGenerated,
+  onAiActionSettled,
 }: ResumeUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const previewUrlRef = useRef<string | null>(null);
   const [pending, setPending] = useState(false);
   const [accessPending, setAccessPending] = useState(false);
   const [extractPending, setExtractPending] = useState(false);
+  const [generatePending, setGeneratePending] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -380,20 +373,94 @@ export function ResumeUpload({
       );
     } finally {
       setExtractPending(false);
+      onAiActionSettled?.();
     }
   }
 
-  const busy = pending || accessPending || extractPending;
+  async function handleGenerate() {
+    if (isDirty) {
+      toast.error("Save your profile before generating");
+      return;
+    }
+
+    setGeneratePending(true);
+    try {
+      const token = await insforge.getHttpClient().getValidAccessToken();
+      if (!token) {
+        toast.error("Please sign in again to generate a resume");
+        return;
+      }
+
+      const response = await fetch("/api/resume/generate", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const payload = (await response.json()) as {
+        success?: boolean;
+        data?: { resume_pdf_url?: string };
+        error?: string;
+      };
+
+      if (!response.ok || !payload.success || !payload.data?.resume_pdf_url) {
+        toast.error(
+          payload.error ?? "Could not generate resume. Please try again.",
+        );
+        return;
+      }
+
+      onGenerated?.(payload.data.resume_pdf_url);
+      setPreviewReloadKey((key) => key + 1);
+      captureEvent("resume_generated", { userId });
+      toast.success("Resume generated from your profile");
+    } catch {
+      toast.error("Could not generate resume. Please try again.");
+    } finally {
+      setGeneratePending(false);
+      onAiActionSettled?.();
+    }
+  }
+
+  const busy = pending || accessPending || extractPending || generatePending;
+
+  const actionStatus = pending
+    ? {
+        message: "Uploading resume...",
+        detail: "Keeping your previous file until this finishes.",
+      }
+    : extractPending
+      ? {
+          message: "Extracting profile from resume...",
+          detail: "Usually finishes within a minute. You can keep this tab open.",
+        }
+      : generatePending
+        ? {
+            message: "Generating resume PDF...",
+            detail: "Polishing your profile into a one-page resume.",
+          }
+        : null;
 
   return (
     <Card>
+      <CardContent>
       <h2 className="text-base font-semibold text-text-primary">Resume</h2>
       <p className="mt-1 text-sm font-medium text-text-secondary">
         Upload an existing resume to auto-fill this profile, or generate a new
         tailored one from your details below.
       </p>
 
-      <div className="mt-5 flex flex-col items-center justify-center rounded-lg border border-dashed border-border-muted bg-accent-muted/40 px-6 py-10 text-center">
+      <div className="relative mt-5 flex flex-col items-center justify-center rounded-lg border border-dashed border-border-muted bg-accent-muted/40 px-6 py-10 text-center">
+        {pending ? (
+          <div
+            className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-lg bg-surface/80 backdrop-blur-[1px]"
+            aria-busy="true"
+          >
+            <Spinner size="md" label="Uploading resume" />
+            <p className="text-sm font-medium text-text-primary">
+              Uploading resume...
+            </p>
+          </div>
+        ) : null}
         <CloudUploadIcon />
         <p className="mt-3 text-sm font-medium text-text-primary">
           Click to upload or drag and drop
@@ -406,6 +473,7 @@ export function ResumeUpload({
           type="file"
           accept="application/pdf,.pdf"
           className="hidden"
+          disabled={busy}
           onChange={(e) => {
             const file = e.target.files?.[0];
             void handleFile(file);
@@ -414,8 +482,9 @@ export function ResumeUpload({
         />
         <Button
           variant="secondary"
-          className="mt-4"
+          className="mt-4 min-h-10"
           type="button"
+          pending={pending}
           disabled={busy}
           onClick={() => inputRef.current?.click()}
         >
@@ -441,31 +510,46 @@ export function ResumeUpload({
         />
       ) : null}
 
+      <InlineActionStatus
+        show={Boolean(actionStatus)}
+        message={actionStatus?.message ?? ""}
+        detail={actionStatus?.detail}
+      />
+
       {resumePdfUrl ? (
-        <div className="mt-5 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
-          <p className="text-sm text-text-secondary">
+        <div className="mt-5 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
+          <p className="text-sm text-text-secondary sm:max-w-[55%]">
             Auto-fill the form fields below from your uploaded resume.
           </p>
           <Button
             type="button"
-            className="shrink-0 py-3 text-sm font-medium"
+            className={RESUME_ACTION_BTN}
+            pending={extractPending}
             disabled={busy}
             onClick={() => void handleExtract()}
           >
+            {!extractPending ? <FileSearch data-icon="inline-start" /> : null}
             {extractPending ? "Extracting..." : "Extract from Resume"}
           </Button>
         </div>
       ) : null}
 
-      <div className="mt-5 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
-        <p className="text-sm text-text-secondary">
+      <div className="mt-5 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
+        <p className="text-sm text-text-secondary sm:max-w-[55%]">
           Need a fresh document based on the fields below?
         </p>
-        <Button type="button" className="shrink-0" disabled>
-          <DocumentIcon />
-          Generate Resume from Profile
+        <Button
+          type="button"
+          className={RESUME_ACTION_BTN}
+          pending={generatePending}
+          disabled={busy}
+          onClick={() => void handleGenerate()}
+        >
+          {!generatePending ? <FileText data-icon="inline-start" /> : null}
+          {generatePending ? "Generating..." : "Generate Resume"}
         </Button>
       </div>
+      </CardContent>
     </Card>
   );
 }

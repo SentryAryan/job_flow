@@ -2,7 +2,7 @@
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import type { Profile } from "@/types";
 
 type PersonalInfoSectionProps = {
@@ -77,7 +77,7 @@ export function PersonalInfoSection({
         </div>
         <div className="sm:col-span-2">
           <Label htmlFor="work_authorization">Work Authorization</Label>
-          <Select
+          <NativeSelect
             id="work_authorization"
             value={profile.work_authorization ?? "citizen"}
             onChange={(e) => onChange({ work_authorization: e.target.value })}
@@ -85,7 +85,7 @@ export function PersonalInfoSection({
             <option value="citizen">Citizen</option>
             <option value="permanent_resident">Permanent Resident</option>
             <option value="visa_required">Visa Required</option>
-          </Select>
+          </NativeSelect>
         </div>
       </div>
     </section>
