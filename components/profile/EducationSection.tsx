@@ -2,7 +2,7 @@
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import type { Education, Profile } from "@/types";
 
 type EducationSectionProps = {
@@ -20,7 +20,7 @@ export function EducationSection({
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="degree">Highest Degree</Label>
-          <Select
+          <NativeSelect
             id="degree"
             value={education.degree ?? ""}
             onChange={(e) => onChange({ ...education, degree: e.target.value })}
@@ -33,7 +33,7 @@ export function EducationSection({
             <option value="PhD">PhD</option>
             <option value="Bootcamp">Bootcamp</option>
             <option value="Other">Other</option>
-          </Select>
+          </NativeSelect>
         </div>
         <div>
           <Label htmlFor="field_of_study">Field of Study</Label>

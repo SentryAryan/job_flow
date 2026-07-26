@@ -7,8 +7,8 @@ Update this file after every completed feature. Any AI agent reading this should
 ## Current Status
 
 **Phase:** Phase 2 — Profile Page
-**Last completed:** 07 AI Profile Extraction from Resume
-**Next:** 08 Resume PDF Generation from Profile
+**Last completed:** 08 Resume PDF Generation from Profile
+**Next:** 09 Find Jobs Page — Full UI
 
 ---
 
@@ -26,7 +26,7 @@ Update this file after every completed feature. Any AI agent reading this should
 - [x] 05 Profile Page — Full UI
 - [x] 06 Profile Save Logic
 - [x] 07 AI Profile Extraction from Resume
-- [ ] 08 Resume PDF Generation from Profile
+- [x] 08 Resume PDF Generation from Profile
 
 
 
@@ -83,12 +83,16 @@ Update this file after every completed feature. Any AI agent reading this should
 - **05 Profile Page — AppNavbar** — App shell uses `AppNavbar` (logo + Dashboard / Find Jobs / Profile). Active link uses accent color + purple underline (design override of ui-rules “no underline”). Marketing `Navbar` unchanged.
 - **05 Profile Page — Cover Letter Tone omitted** — Field exists on `Profile` type / DB but is not shown in the PNG; deferred to Feature 06 wiring.
 - **05 Profile Page — Email read-only** — Disabled input; auth-owned. Job titles seeking / preferred locations are free-text comma fields in the UI (arrays on save later).
-- **05 Profile Page — UI primitives** — Lightweight token-based `components/ui/*` (Button, Input, Select, Textarea, Label, Card, Tag). shadcn not installed yet.
+- **05 Profile Page — UI primitives** — Replaced with **shadcn/ui** (`components.json`, radix-nova). JobPilot tokens remain source of truth in `app/globals.css` (`--jp-*` + `@theme`); shadcn semantic vars map onto them. Prefer shadcn primitives for new UI.
 - **05 Profile Page — Completion** — `lib/profile-completion.ts` computes % + missing tags. Mock profile yields 70% with PHONE / LOCATION / EDUCATION missing.
 - **06 Profile Save — browser SDK writes** — Resolved Feature 02 deferral: `/profile` loads/saves via `lib/profile.ts` using the authenticated browser `insforge` client (RLS via session JWT). No Server Action / `@insforge/sdk/ssr` for profile. `is_complete` derived from `getProfileCompletion` (no DB columns for %/missing tags). Resume upload: PDF ≤5MB to `resumes` at `{user_id}/resume.pdf`, persist returned `data.url`. Cover letter tone still omitted from UI (unchanged on save). `profile_completed` fires when save flips incomplete→complete. Generate Resume remains Feature 08 stub.
 - **06 Profile Save — review hardening** — Vitest unit tests for profile/auth/storage helpers (`npm test`). AuthProvider preserves session only on transient errors (timeout/network); clears on auth rejection. Resume replace uploads first then removes stale prior keys (never delete-before-upload). Save uses auth email for completion; LinkedIn/portfolio require http(s) URLs; comma-list fields re-sync after save without clobbering mid-edit; resume feedback via Sonner toasts.
 - **06 Profile Save — view/download resume** — When `resume_pdf_url` is set, `/profile` shows an authenticated inline PDF preview (`fetchResumeBlob` → blob URL iframe) with Expand (modal) and Download. Blobs are normalized to `application/pdf` so the browser renders instead of downloading an untyped UUID file.
-- **07 AI Profile Extraction** — Extract from Resume (after upload) POSTs the PDF to `POST /api/resume/extract` with InsForge Bearer JWT (`lib/api-auth.ts`). Server uses `pdf-parse` v2 (`PDFParse` + `%PDF` magic-byte check) then Vercel AI SDK `generateObject` via OpenRouter model `openrouter/free` (response-healing). Env: server-only `OPENROUTER_API_KEYS` (multi-key failover) or `OPENROUTER_API_KEY`, plus `AI_PROVIDER`, `AI_MODEL`. Production rate limits (`APP_ENV=production|prod`) use Redis sliding windows via `REDIS_URL` (3/min, 15/hour, 40/day per user); `development`/`dev` skips limits. Client merges into form state via `mergeExtractedIntoProfile` (no auto-save). Success requires substantive fields (not salary-only). Provider swap + key rotation live in `lib/ai/provider.ts`.
+- **07 AI Profile Extraction** — Extract from Resume (after upload) POSTs the PDF to `POST /api/resume/extract` with InsForge Bearer JWT (`lib/api-auth.ts`). Server uses `pdf-parse` v2 (`PDFParse` + `%PDF` magic-byte check) then Vercel AI SDK `generateObject` via OpenRouter model `openrouter/free` (response-healing). Env: server-only `OPENROUTER_API_KEYS` (multi-key failover) or `OPENROUTER_API_KEY`, plus `AI_PROVIDER`, `AI_MODEL`. Shared Resume AI Redis pool with Generate (see below). Client merges into form state via `mergeExtractedIntoProfile` (no auto-save). Success requires substantive fields (not salary-only). Provider swap + key rotation live in `lib/ai/provider.ts`.
+- **08 Resume PDF Generation** — Generate Resume: client save-first dirty gate (`isProfileDirty` vs last loaded/saved baseline) then `POST /api/resume/generate` with Bearer JWT. Server loads saved `profiles` row, OpenRouter `generateObject` (temp 0.7, same `openrouter/free` + `withOpenRouterKeyFailover`) polishes summary/bullets, `@react-pdf/renderer` renders one-page A4 matching `context/templates/demo_resume.pdf` visual style. Uploads to private `resumes` at `{user_id}/resume.pdf`, updates `resume_pdf_url`; client refreshes preview. PostHog `resume_generated`. Button label **Generate Resume** + `FileText` icon (equal width with Extract).
+- **Resume AI shared rate limits + usage card** — Extract + Generate share Redis key `resume-ai:{userId}`; windows from `RESUME_AI_RATE_LIMIT_PER_MINUTE|HOUR|DAY` (defaults 3/15/40). Hits recorded whenever `REDIS_URL` is set; **429 only in production**. `GET /api/resume/usage` peeks without consuming. Profile `ResumeAiUsageCard` (Progress bars, combined-copy, 60s poll + refresh). Hidden in development or when user has BYOK keys. Deploy note: namespace renamed from `resume-extract:` (counters reset once).
+- **OpenRouter BYOK** — Profile section saves up to 5 encrypted OpenRouter keys (`profiles.openrouter_keys_enc`, AES-256-GCM via `BYOK_ENCRYPTION_SECRET`). API `GET/POST/DELETE /api/profile/openrouter-keys` verifies each key with OpenRouter before save. With BYOK: Extract/Generate use only user keys + skip shared rate limits; no platform-key fallback. Invalid/exhausted keys show a clear remove-to-switch message.
+- **UI — shadcn/ui** — Initialized shadcn (`radix` + `nova`, `components.json`). Primitives under `components/ui/` from the registry; JobPilot colors kept via `--jp-*` / `@theme` (brand purple stays `bg-accent`). Custom toaster (`toaster.tsx`) kept over default sonner for token-styled toasts. Dense profile dropdowns use `NativeSelect`; Radix `Select` available for richer menus. Progress used for usage card.
 
 ---
 

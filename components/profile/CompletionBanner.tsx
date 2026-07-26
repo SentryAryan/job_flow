@@ -1,4 +1,4 @@
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import type { MissingFieldTag } from "@/lib/profile-completion";
 
 type CompletionBannerProps = {
@@ -74,38 +74,36 @@ export function CompletionBanner({ percent, missing }: CompletionBannerProps) {
   }
 
   return (
-    <Card
-      role="status"
-      aria-live="polite"
-      className="flex flex-col gap-4 border-error/40 sm:flex-row sm:items-center sm:justify-between"
-    >
-      <div className="flex min-w-0 flex-1 gap-3">
-        <div className="mt-0.5 shrink-0">
-          <WarningIcon />
+    <Card role="status" aria-live="polite" className="border-error/40">
+      <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-1 gap-3">
+          <div className="mt-0.5 shrink-0">
+            <WarningIcon />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-text-primary">
+              Profile needs attention
+            </h2>
+            <p className="mt-1 text-sm font-medium text-text-secondary">
+              Complete the missing fields to improve your chance of getting
+              tailored matches and generating quality resumes.
+            </p>
+            {missing.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-3">
+                {missing.map((tag) => (
+                  <span
+                    key={tag}
+                    className="text-xs font-semibold uppercase tracking-wide text-error"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
-        <div className="min-w-0">
-          <h2 className="text-base font-semibold text-text-primary">
-            Profile needs attention
-          </h2>
-          <p className="mt-1 text-sm font-medium text-text-secondary">
-            Complete the missing fields to improve your chance of getting
-            tailored matches and generating quality resumes.
-          </p>
-          {missing.length > 0 ? (
-            <div className="mt-3 flex flex-wrap gap-3">
-              {missing.map((tag) => (
-                <span
-                  key={tag}
-                  className="text-xs font-semibold uppercase tracking-wide text-error"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      </div>
-      <ProgressRing percent={percent} />
+        <ProgressRing percent={percent} />
+      </CardContent>
     </Card>
   );
 }
