@@ -3,7 +3,13 @@
 import { TagInput } from "@/components/profile/TagInput";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import type { Profile } from "@/types";
 
 type ProfessionalInfoSectionProps = {
@@ -33,16 +39,20 @@ export function ProfessionalInfoSection({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="experience_level">Experience Level</Label>
-            <NativeSelect
-              id="experience_level"
+            <Select
               value={profile.experience_level ?? "junior"}
-              onChange={(e) => onChange({ experience_level: e.target.value })}
+              onValueChange={(value) => onChange({ experience_level: value })}
             >
-              <option value="junior">Junior</option>
-              <option value="mid">Mid</option>
-              <option value="senior">Senior</option>
-              <option value="lead">Lead</option>
-            </NativeSelect>
+              <SelectTrigger id="experience_level">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="junior">Junior</SelectItem>
+                <SelectItem value="mid">Mid</SelectItem>
+                <SelectItem value="senior">Senior</SelectItem>
+                <SelectItem value="lead">Lead</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label htmlFor="years_experience">Years of Experience</Label>

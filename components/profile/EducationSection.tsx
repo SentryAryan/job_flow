@@ -2,7 +2,13 @@
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import type { Education, Profile } from "@/types";
 
 type EducationSectionProps = {
@@ -20,20 +26,29 @@ export function EducationSection({
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="degree">Highest Degree</Label>
-          <NativeSelect
-            id="degree"
-            value={education.degree ?? ""}
-            onChange={(e) => onChange({ ...education, degree: e.target.value })}
+          <Select
+            value={education.degree || "__empty__"}
+            onValueChange={(value) =>
+              onChange({
+                ...education,
+                degree: value === "__empty__" ? "" : value,
+              })
+            }
           >
-            <option value="">Select degree</option>
-            <option value="High School">High School</option>
-            <option value="Associate">Associate</option>
-            <option value="Bachelor">Bachelor</option>
-            <option value="Master">Master</option>
-            <option value="PhD">PhD</option>
-            <option value="Bootcamp">Bootcamp</option>
-            <option value="Other">Other</option>
-          </NativeSelect>
+            <SelectTrigger id="degree">
+              <SelectValue placeholder="Select degree" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__empty__">Select degree</SelectItem>
+              <SelectItem value="High School">High School</SelectItem>
+              <SelectItem value="Associate">Associate</SelectItem>
+              <SelectItem value="Bachelor">Bachelor</SelectItem>
+              <SelectItem value="Master">Master</SelectItem>
+              <SelectItem value="PhD">PhD</SelectItem>
+              <SelectItem value="Bootcamp">Bootcamp</SelectItem>
+              <SelectItem value="Other">Other</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div>
           <Label htmlFor="field_of_study">Field of Study</Label>

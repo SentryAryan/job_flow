@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { errorMessage, isNotFoundError, isTransientError } from "@/lib/errors";
+import { errorMessage, isNotFoundError, isTransientError, withTimeout } from "@/lib/errors";
 import { insforge } from "@/lib/insforge-client";
 import { getProfileCompletion } from "@/lib/profile-completion";
 import {
@@ -11,6 +11,16 @@ import {
 import type { Profile, WorkExperienceRole } from "@/types";
 
 const MAX_RESUME_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Per-attempt budget for profiles select. InsForge ap-southeast can 504 / cold-start
+ * well past the old 12s client abort; SDK default is 90s.
+ */
+const PROFILE_FETCH_TIMEOUT_MS = Number(
+  process.env.NEXT_PUBLIC_PROFILE_FETCH_TIMEOUT_MS ?? 45_000,
+);
+const PROFILE_FETCH_RETRIES = 2;
+const PROFILE_FETCH_RETRY_DELAYS_MS = [600, 1800] as const;
 
 function isOptionalHttpUrl(value: string | null): boolean {
   if (value == null || value.trim() === "") return true;
@@ -197,17 +207,70 @@ function firstValidationMessage(
   return issue.message || fallback;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 export async function fetchProfile(
   userId: string,
 ): Promise<ActionResult<Profile>> {
-  try {
-    const { data, error } = await insforge.database
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
+  const maxAttempts = PROFILE_FETCH_RETRIES + 1;
+  let lastFailure: unknown;
 
-    if (error) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const { data, error } = await withTimeout(
+        insforge.database.from("profiles").select("*").eq("id", userId).single(),
+        PROFILE_FETCH_TIMEOUT_MS,
+        "Request timed out",
+      );
+
+      if (error) {
+        lastFailure = error;
+        if (
+          isTransientError(error) &&
+          attempt < maxAttempts - 1
+        ) {
+          await sleep(
+            PROFILE_FETCH_RETRY_DELAYS_MS[attempt] ??
+              PROFILE_FETCH_RETRY_DELAYS_MS[
+                PROFILE_FETCH_RETRY_DELAYS_MS.length - 1
+              ]!,
+          );
+          continue;
+        }
+        console.error("[lib/profile] fetchProfile", error);
+        return {
+          success: false,
+          error: userFacingTimeoutMessage(
+            error,
+            "Request timed out. Please try again.",
+            "Failed to load profile",
+          ),
+        };
+      }
+
+      if (!data || typeof data !== "object") {
+        return { success: false, error: "Profile not found" };
+      }
+
+      return {
+        success: true,
+        data: mapRowToProfile(data as Record<string, unknown>),
+      };
+    } catch (error) {
+      lastFailure = error;
+      if (isTransientError(error) && attempt < maxAttempts - 1) {
+        await sleep(
+          PROFILE_FETCH_RETRY_DELAYS_MS[attempt] ??
+            PROFILE_FETCH_RETRY_DELAYS_MS[
+              PROFILE_FETCH_RETRY_DELAYS_MS.length - 1
+            ]!,
+        );
+        continue;
+      }
       console.error("[lib/profile] fetchProfile", error);
       return {
         success: false,
@@ -218,26 +281,17 @@ export async function fetchProfile(
         ),
       };
     }
-
-    if (!data || typeof data !== "object") {
-      return { success: false, error: "Profile not found" };
-    }
-
-    return {
-      success: true,
-      data: mapRowToProfile(data as Record<string, unknown>),
-    };
-  } catch (error) {
-    console.error("[lib/profile] fetchProfile", error);
-    return {
-      success: false,
-      error: userFacingTimeoutMessage(
-        error,
-        "Request timed out. Please try again.",
-        "Failed to load profile",
-      ),
-    };
   }
+
+  console.error("[lib/profile] fetchProfile", lastFailure);
+  return {
+    success: false,
+    error: userFacingTimeoutMessage(
+      lastFailure,
+      "Request timed out. Please try again.",
+      "Failed to load profile",
+    ),
+  };
 }
 
 export async function saveProfile(

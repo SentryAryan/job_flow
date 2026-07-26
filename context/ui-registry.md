@@ -63,10 +63,17 @@ Reusable pair of marketing CTAs ("Get Started" + "Find Your First Match"). Props
 
 ### Navbar — `components/layout/Navbar.tsx`
 
+Shared chrome for marketing and authenticated pages (home, login, profile, find-jobs, dashboard). `AppNavbar` re-exports this module.
+
 - Header: `w-full border-b border-border bg-surface`
-- Inner: `mx-auto flex h-16 max-w-6xl items-center justify-between px-6`
-- Nav links: `text-sm font-medium text-text-dark transition-colors hover:text-accent` (hidden below `md`)
-- CTA "Start for free": dark button — `rounded-md bg-overlay-dark px-4 py-2 text-sm font-medium text-white hover:opacity-90`
+- Inner: `mx-auto flex h-16 max-w-6xl items-center justify-between px-6` — Logo | nav | CTA
+- Logo links to `/` (homepage always reachable)
+- Nav links: lucide icons (`LayoutGrid` / `Search` / `User`) + label; active `border-accent text-accent` underline; inactive `text-text-dark`
+- CTA: signed out → dark **Get Started** → `/login`; signed in → shadcn `Avatar` + `DropdownMenu` (`NavbarCta`) with name/email, Profile link, Sign out. Menu opens on hover; click pins it open until outside click / second click.
+
+### AuthGuard — `components/auth/AuthGuard.tsx`
+
+While auth is hydrating or the user is unsigned, renders `Navbar` + optional `fallback` page skeleton (default `DefaultMainSkeleton`) — never a blank full-screen spinner. Redirects to `/login` when loaded and signed out. Pages pass page-shaped fallbacks (`ProfilePageSkeleton`, `FindJobsPageSkeleton`, `DashboardPageSkeleton`).
 
 ### Footer — `components/layout/Footer.tsx`
 
@@ -142,7 +149,7 @@ Bottom gradient CTA, full-bleed within the frame (same gradient technique as Her
 
 Client component (built to `context/designs/login-page.png`). Renders `<Navbar />` above a centered split card; keeps the OAuth logic (`useUser()` redirect to `/dashboard` when signed in, `insforge.auth.signInWithOAuth(provider, { redirectTo: <origin>/callback })`, `pending`/`error` state).
 
-- **Auth gate (no form flash):** while `!isLoaded` or `user` is set, render only a centered spinner (same pattern as `AuthGuard`) — never mount the provider buttons for signed-in users. Form renders only when `isLoaded && !user`.
+- **Auth gate (no form flash):** while `!isLoaded` or `user` is set, render `LoginPageSkeleton` (Navbar + split-card structural skeletons) — never mount the provider buttons for signed-in users. Form renders only when `isLoaded && !user`.
 - **OAuth back-button:** `pageshow` listener clears `pending`/`error` so bfcache restore after abandoning Google/GitHub does not leave buttons stuck on "Redirecting...".
 - Page: `flex min-h-screen flex-col bg-background`; main `flex flex-1 items-center justify-center px-6 py-12`
 - Card: `grid w-full max-w-[760px] overflow-hidden rounded-2xl border border-border bg-surface shadow-[0px_1px_3px_rgba(0,0,0,0.1),0px_1px_2px_-1px_rgba(0,0,0,0.1)] md:grid-cols-2`
@@ -155,14 +162,16 @@ Client component (built to `context/designs/login-page.png`). Renders `<Navbar /
   - Icons are official brand marks (fixed brand hex is an intentional exception to the no-raw-hex rule): Google 4-color `G` (viewBox `0 0 48 48`); GitHub mark (`fill="currentColor"` → inherits `text-text-primary`)
 - Error: `mt-4 text-sm text-error`
 
-### AppNavbar — `components/layout/AppNavbar.tsx`
+### Find Jobs page — `app/find-jobs/page.tsx`
 
-Authenticated app chrome (Profile / Dashboard / Find Jobs). Distinct from marketing `Navbar` (no “Start for free”).
+Client page wrapped in `AuthGuard` with `FindJobsPageSkeleton` fallback (Navbar stays visible while auth hydrates). Composes `Navbar` + search + filters + jobs table (mock data only — Feature 09).
 
-- Header: `w-full border-b border-border bg-surface`
-- Inner: `mx-auto flex h-16 max-w-6xl items-center justify-between px-6`
-- Logo links to `/dashboard`
-- Nav links: `border-b-2 pb-0.5 text-sm font-medium` — active `border-accent text-accent`; inactive `border-transparent text-text-dark hover:text-accent`
+- Shell: `min-h-screen bg-background`
+- Main: `mx-auto flex max-w-6xl flex-col gap-5 px-6 py-8 sm:px-8`
+- Components under `components/find-jobs/`: `SearchControls`, `JobFilters`, `JobsTable`, `JobsPagination`, `MatchScoreBar`
+- Helpers: `lib/mock-jobs.ts` (24 rows), `lib/find-jobs-list.ts` (filter / sort / paginate / relative dates / score color)
+- Match score fill: ≥90 `bg-success`, ≥80 `bg-info`, else `bg-warning` (design override of homepage preview thresholds)
+- Pagination: 6 per page; footer inside results card
 
 ### UI primitives — `components/ui/`
 
@@ -170,9 +179,11 @@ Authenticated app chrome (Profile / Dashboard / Find Jobs). Distinct from market
 
 - **Button** — shadcn `Button` with JobPilot variants: `default`/`primary` (purple elevated border), `secondary`/`outline` (gray elevated), `muted`, `danger`/`destructive` (solid red hover). Optional `pending` shows decorative `Spinner` + `aria-busy` and disables. Always `cursor-pointer` / `disabled:cursor-not-allowed`. No hover translate. Lucide icons via `data-icon="inline-start"` on profile actions.
 - **Spinner** — lucide `Loader2` + `text-accent`; `size` sm|md; `decorative` inside busy buttons
+- **Skeleton** — shadcn `Skeleton` (`animate-pulse bg-muted`); page/section loading placeholders keep Navbar visible — never full-viewport spinner-only screens
 - **Progress** — shadcn Progress (`components/ui/progress.tsx`); used by Resume AI usage card
-- **Input / Textarea / NativeSelect** — elevated field chrome (`border-border` + heavier `border-b-border-muted`), focus accent ring; `NativeSelect` for dense option lists (months/years/enums)
-- **Select** — Radix shadcn Select (`SelectTrigger` / `SelectContent` / `SelectItem`) for richer menus
+- **Input / Textarea** — elevated field chrome (`border-border` + heavier `border-b-border-muted`), focus accent ring
+- **Select** — Radix shadcn Select (`SelectTrigger` / `SelectContent` / `SelectItem`) for all dropdowns (enums, months/years, filters); trigger chrome matches Input — never native `<select>`
+- **Checkbox** — shadcn Checkbox for boolean fields (e.g. “Currently working here”)
 - **Label** — Radix Label; profile default `mb-1.5 block text-xs font-semibold uppercase tracking-wide text-text-secondary`
 - **Card** — compose with `CardContent` (and Header/Title/Footer as needed); `border-border` + `shadow-[var(--shadow-card)]`
 - **Badge** — shadcn Badge available
@@ -180,7 +191,7 @@ Authenticated app chrome (Profile / Dashboard / Find Jobs). Distinct from market
 
 ### Profile page — `app/profile/page.tsx`
 
-Client page wrapped in `AuthGuard`. Loads profile via `fetchProfile` (`lib/profile.ts`); composes `AppNavbar` + completion banner + resume + form. Loading spinner while fetching; error text on failure.
+Client page wrapped in `AuthGuard` with `ProfilePageSkeleton` fallback. Loads profile via `fetchProfile` (`lib/profile.ts`); composes `Navbar` + completion banner + resume + form. Initial fetch and AuthGuard use structural shadcn `Skeleton` layouts (not full-viewport spinners); Resume AI usage / OpenRouter keys / resume preview skeletonize independently inside their cards.
 
 - Shell: `min-h-screen bg-background`
 - Main: `mx-auto flex max-w-3xl flex-col gap-6 px-6 py-8 sm:px-8`

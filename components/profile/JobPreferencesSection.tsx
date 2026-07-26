@@ -2,7 +2,13 @@
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import type { Profile } from "@/types";
 
 type JobPreferencesSectionProps = {
@@ -40,18 +46,22 @@ export function JobPreferencesSection({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="remote_preference">Remote Preference</Label>
-            <NativeSelect
-              id="remote_preference"
+            <Select
               value={profile.remote_preference ?? "any"}
-              onChange={(e) =>
-                onProfileChange({ remote_preference: e.target.value })
+              onValueChange={(value) =>
+                onProfileChange({ remote_preference: value })
               }
             >
-              <option value="any">Any</option>
-              <option value="remote">Remote</option>
-              <option value="hybrid">Hybrid</option>
-              <option value="onsite">Onsite</option>
-            </NativeSelect>
+              <SelectTrigger id="remote_preference">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any">Any</SelectItem>
+                <SelectItem value="remote">Remote</SelectItem>
+                <SelectItem value="hybrid">Hybrid</SelectItem>
+                <SelectItem value="onsite">Onsite</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label htmlFor="salary_expectation">

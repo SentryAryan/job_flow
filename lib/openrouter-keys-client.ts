@@ -1,3 +1,5 @@
+import { authedFetch } from "@/lib/authed-fetch";
+
 export type MaskedOpenRouterKey = {
   id: string;
   last4: string;
@@ -33,13 +35,10 @@ async function parseKeysResponse(
   return { success: true, data: payload.data };
 }
 
-export async function fetchOpenRouterKeys(
-  accessToken: string,
-): Promise<OpenRouterKeysResult> {
+export async function fetchOpenRouterKeys(): Promise<OpenRouterKeysResult> {
   try {
-    const response = await fetch("/api/profile/openrouter-keys", {
+    const response = await authedFetch("/api/profile/openrouter-keys", {
       method: "GET",
-      headers: { Authorization: `Bearer ${accessToken}` },
       cache: "no-store",
     });
     return await parseKeysResponse(response);
@@ -52,14 +51,12 @@ export async function fetchOpenRouterKeys(
 }
 
 export async function addOpenRouterKey(
-  accessToken: string,
   key: string,
 ): Promise<OpenRouterKeysResult> {
   try {
-    const response = await fetch("/api/profile/openrouter-keys", {
+    const response = await authedFetch("/api/profile/openrouter-keys", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ key }),
@@ -74,14 +71,12 @@ export async function addOpenRouterKey(
 }
 
 export async function removeOpenRouterKey(
-  accessToken: string,
   id: string,
 ): Promise<OpenRouterKeysResult> {
   try {
-    const response = await fetch("/api/profile/openrouter-keys", {
+    const response = await authedFetch("/api/profile/openrouter-keys", {
       method: "DELETE",
       headers: {
-        Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ id }),

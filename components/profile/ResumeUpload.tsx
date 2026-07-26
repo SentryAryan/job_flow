@@ -7,9 +7,10 @@ import { toast } from "sonner";
 import { InlineActionStatus } from "@/components/profile/InlineActionStatus";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { captureEvent } from "@/lib/analytics";
-import { insforge } from "@/lib/insforge-client";
+import { authedFetch } from "@/lib/authed-fetch";
 import { fetchResumeBlob, uploadResume } from "@/lib/profile";
 import type { ProfileExtract } from "@/lib/resume-extract";
 import type { Profile } from "@/types";
@@ -142,9 +143,15 @@ function ResumePreview({
 
         <div className="relative min-h-72 bg-surface-secondary">
           {loading ? (
-            <div className="flex min-h-72 items-center justify-center gap-2 text-sm text-text-secondary">
-              <Spinner size="md" label="Loading preview" />
-              Loading preview…
+            <div
+              className="flex min-h-72 flex-col gap-3 p-4"
+              aria-busy="true"
+              aria-label="Loading preview"
+            >
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-full max-w-md" />
+              <Skeleton className="mt-2 h-40 w-full rounded-md" />
             </div>
           ) : null}
           {!loading && error ? (
@@ -325,12 +332,6 @@ export function ResumeUpload({
     if (!resumePdfUrl) return;
     setExtractPending(true);
     try {
-      const token = await insforge.getHttpClient().getValidAccessToken();
-      if (!token) {
-        toast.error("Please sign in again to extract from your resume");
-        return;
-      }
-
       const blobResult = await fetchResumeBlob(userId, resumePdfUrl);
       if (!blobResult.success) {
         toast.error(blobResult.error);
@@ -345,9 +346,8 @@ export function ResumeUpload({
         }),
       );
 
-      const response = await fetch("/api/resume/extract", {
+      const response = await authedFetch("/api/resume/extract", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
 
@@ -356,6 +356,11 @@ export function ResumeUpload({
         data?: ProfileExtract;
         error?: string;
       };
+
+      if (response.status === 401) {
+        toast.error("Please sign in again to extract from your resume");
+        return;
+      }
 
       if (!response.ok || !payload.success || !payload.data) {
         toast.error(
@@ -385,15 +390,8 @@ export function ResumeUpload({
 
     setGeneratePending(true);
     try {
-      const token = await insforge.getHttpClient().getValidAccessToken();
-      if (!token) {
-        toast.error("Please sign in again to generate a resume");
-        return;
-      }
-
-      const response = await fetch("/api/resume/generate", {
+      const response = await authedFetch("/api/resume/generate", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
       });
 
       const payload = (await response.json()) as {
@@ -401,6 +399,11 @@ export function ResumeUpload({
         data?: { resume_pdf_url?: string };
         error?: string;
       };
+
+      if (response.status === 401) {
+        toast.error("Please sign in again to generate a resume");
+        return;
+      }
 
       if (!response.ok || !payload.success || !payload.data?.resume_pdf_url) {
         toast.error(

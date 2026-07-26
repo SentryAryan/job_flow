@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/authed-fetch";
 import type { RateLimitWindowUsage } from "@/lib/rate-limit";
 
 export type ResumeAiUsageData = {
@@ -11,15 +12,12 @@ export type FetchResumeAiUsageResult =
   | { success: false; error: string };
 
 /**
- * Client fetch for GET /api/resume/usage (Bearer JWT).
+ * Client fetch for GET /api/resume/usage (Bearer JWT via authedFetch).
  */
-export async function fetchResumeAiUsage(
-  accessToken: string,
-): Promise<FetchResumeAiUsageResult> {
+export async function fetchResumeAiUsage(): Promise<FetchResumeAiUsageResult> {
   try {
-    const response = await fetch("/api/resume/usage", {
+    const response = await authedFetch("/api/resume/usage", {
       method: "GET",
-      headers: { Authorization: `Bearer ${accessToken}` },
       cache: "no-store",
     });
 

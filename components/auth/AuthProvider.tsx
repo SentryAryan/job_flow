@@ -5,7 +5,12 @@ import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 
 import { identifyUser } from "@/lib/analytics";
-import { isTransientError } from "@/lib/errors";
+import {
+    getAccessTokenForApi,
+    isAccessTokenExpiring,
+    refreshBrowserSession,
+} from "@/lib/auth-access-token";
+import { isTransientError, withTimeout } from "@/lib/errors";
 import { insforge } from "@/lib/insforge-client";
 
 type AuthContextValue = {
@@ -19,6 +24,12 @@ type Props = {
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+const AUTH_LOAD_TIMEOUT_MS = 10_000;
+/** Proactive refresh while a tab stays open (access JWTs are short-lived). */
+const SESSION_REFRESH_INTERVAL_MS = 8 * 60 * 1000;
+/** Refresh when the in-memory JWT is within this many seconds of exp. */
+const PROACTIVE_TOKEN_LEEWAY_SECONDS = 180;
 
 export function AuthProvider({ children }: Props) {
   const [user, setUser] = useState<UserSchema | null>(null);
@@ -42,13 +53,37 @@ export function AuthProvider({ children }: Props) {
     };
 
     const load = async (attempt = 0): Promise<void> => {
-      const { data, error } = await insforge.auth.getCurrentUser();
-      if (!active) return;
+      try {
+        const { data, error } = await withTimeout(
+          insforge.auth.getCurrentUser(),
+          AUTH_LOAD_TIMEOUT_MS,
+          "Request timed out",
+        );
+        if (!active) return;
 
-      if (error) {
+        if (error) {
+          const existing = userRef.current;
+          if (existing && isTransientError(error)) {
+            // Keep session on timeout/network blips so AuthGuard does not bounce mid-session.
+            setIsLoaded(true);
+            return;
+          }
+          if (!existing && isTransientError(error) && attempt < 1) {
+            await new Promise((resolve) => setTimeout(resolve, 400));
+            if (!active) return;
+            await load(attempt + 1);
+            return;
+          }
+          // Auth rejection or exhausted cold-start retries → treat as signed out.
+          setSession(null);
+          return;
+        }
+
+        setSession(data?.user ?? null);
+      } catch (error) {
+        if (!active) return;
         const existing = userRef.current;
         if (existing && isTransientError(error)) {
-          // Keep session on timeout/network blips so AuthGuard does not bounce mid-session.
           setIsLoaded(true);
           return;
         }
@@ -58,12 +93,9 @@ export function AuthProvider({ children }: Props) {
           await load(attempt + 1);
           return;
         }
-        // Auth rejection or exhausted cold-start retries → treat as signed out.
+        // Cold-start hang / timeout → stop spinner; treat as signed out.
         setSession(null);
-        return;
       }
-
-      setSession(data?.user ?? null);
     };
 
     void load();
@@ -81,9 +113,40 @@ export function AuthProvider({ children }: Props) {
       // timeout races that would clear the session.
     });
 
+    const ensureFreshAccessToken = async (): Promise<void> => {
+      if (!active || !userRef.current) return;
+      try {
+        const token = await getAccessTokenForApi();
+        // getAccessTokenForApi already refreshes within API leeway; if still
+        // close to exp (long-idle tab), force a cookie refresh.
+        if (
+          !token ||
+          isAccessTokenExpiring(token, PROACTIVE_TOKEN_LEEWAY_SECONDS)
+        ) {
+          await refreshBrowserSession();
+        }
+      } catch {
+        // Proactive refresh must never sign the user out on network blips.
+      }
+    };
+
+    const onVisibilityOrFocus = (): void => {
+      if (document.visibilityState === "hidden") return;
+      void ensureFreshAccessToken();
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityOrFocus);
+    window.addEventListener("focus", onVisibilityOrFocus);
+    const intervalId = window.setInterval(() => {
+      void ensureFreshAccessToken();
+    }, SESSION_REFRESH_INTERVAL_MS);
+
     return () => {
       active = false;
       unsubscribe();
+      document.removeEventListener("visibilitychange", onVisibilityOrFocus);
+      window.removeEventListener("focus", onVisibilityOrFocus);
+      window.clearInterval(intervalId);
     };
   }, []);
 
