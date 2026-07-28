@@ -1,0 +1,209 @@
+import type { MockJobRow } from "@/lib/find-jobs-list";
+
+function hoursAgo(hours: number): string {
+  return new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+}
+
+function daysAgo(days: number): string {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+/**
+ * Mock jobs for Feature 09 Find Jobs UI.
+ * First six rows match context/designs/find-jobs.png scores when sorted by match_score.
+ * Other jobs stay below 78 so page 1 stays design-accurate. Padded to 24 for pagination.
+ */
+export const MOCK_JOBS: MockJobRow[] = [
+  {
+    id: "job-1",
+    company: "Vercel",
+    title: "Senior Frontend Engineer",
+    match_score: 94,
+    salary: "$160k - $200k",
+    found_at: hoursAgo(2),
+  },
+  {
+    id: "job-2",
+    company: "Stripe",
+    title: "Staff UI Engineer",
+    match_score: 91,
+    salary: "$180k - $240k",
+    found_at: daysAgo(1),
+  },
+  {
+    id: "job-3",
+    company: "Linear",
+    title: "Product Engineer",
+    match_score: 90,
+    salary: "$150k - $190k",
+    found_at: daysAgo(1),
+  },
+  {
+    id: "job-4",
+    company: "Notion",
+    title: "Frontend Developer",
+    match_score: 87,
+    salary: "$130k - $170k",
+    found_at: daysAgo(2),
+  },
+  {
+    id: "job-5",
+    company: "OpenAI",
+    title: "Design Engineer",
+    match_score: 85,
+    salary: "$200k - $280k",
+    found_at: daysAgo(3),
+  },
+  {
+    id: "job-6",
+    company: "Figma",
+    title: "Software Engineer, Editor",
+    match_score: 78,
+    salary: "$170k - $220k",
+    found_at: daysAgo(4),
+  },
+  {
+    id: "job-7",
+    company: "Airbnb",
+    title: "React Engineer",
+    match_score: 77,
+    salary: "$165k - $210k",
+    found_at: daysAgo(4),
+  },
+  {
+    id: "job-8",
+    company: "Discord",
+    title: "Senior Frontend Engineer",
+    match_score: 76,
+    salary: "$155k - $190k",
+    found_at: daysAgo(5),
+  },
+  {
+    id: "job-9",
+    company: "GitHub",
+    title: "Frontend Engineer",
+    match_score: 75,
+    salary: "$150k - $185k",
+    found_at: daysAgo(5),
+  },
+  {
+    id: "job-10",
+    company: "Twilio",
+    title: "UI Engineer",
+    match_score: 74,
+    salary: "$135k - $170k",
+    found_at: daysAgo(6),
+  },
+  {
+    id: "job-11",
+    company: "Dropbox",
+    title: "Senior Frontend Engineer",
+    match_score: 73,
+    salary: "$148k - $188k",
+    found_at: daysAgo(6),
+  },
+  {
+    id: "job-12",
+    company: "Slack",
+    title: "Frontend Engineer",
+    match_score: 72,
+    salary: "$152k - $192k",
+    found_at: daysAgo(7),
+  },
+  {
+    id: "job-13",
+    company: "Coinbase",
+    title: "React Developer",
+    match_score: 71,
+    salary: "$145k - $180k",
+    found_at: daysAgo(7),
+  },
+  {
+    id: "job-14",
+    company: "Plaid",
+    title: "Senior Frontend Engineer",
+    match_score: 70,
+    salary: "$170k - $210k",
+    found_at: daysAgo(8),
+  },
+  {
+    id: "job-15",
+    company: "Retool",
+    title: "Frontend Engineer",
+    match_score: 69,
+    salary: "$140k - $175k",
+    found_at: daysAgo(8),
+  },
+  {
+    id: "job-16",
+    company: "Webflow",
+    title: "UI Engineer",
+    match_score: 68,
+    salary: "$130k - $160k",
+    found_at: daysAgo(9),
+  },
+  {
+    id: "job-17",
+    company: "Hashicorp",
+    title: "Frontend Engineer",
+    match_score: 67,
+    salary: "$150k - $185k",
+    found_at: daysAgo(9),
+  },
+  {
+    id: "job-18",
+    company: "Datadog",
+    title: "Senior Frontend Engineer",
+    match_score: 66,
+    salary: "$155k - $195k",
+    found_at: daysAgo(10),
+  },
+  {
+    id: "job-19",
+    company: "Cloudflare",
+    title: "Frontend Engineer",
+    match_score: 65,
+    salary: "$160k - $200k",
+    found_at: daysAgo(10),
+  },
+  {
+    id: "job-20",
+    company: "Sentry",
+    title: "React Engineer",
+    match_score: 64,
+    salary: "$142k - $178k",
+    found_at: daysAgo(11),
+  },
+  {
+    id: "job-21",
+    company: "Cal.com",
+    title: "Frontend Engineer",
+    match_score: 63,
+    salary: "$125k - $155k",
+    found_at: daysAgo(11),
+  },
+  {
+    id: "job-22",
+    company: "Supabase",
+    title: "Senior Frontend Engineer",
+    match_score: 62,
+    salary: "$145k - $180k",
+    found_at: daysAgo(12),
+  },
+  {
+    id: "job-23",
+    company: "PlanetScale",
+    title: "UI Engineer",
+    match_score: 61,
+    salary: "$138k - $172k",
+    found_at: daysAgo(12),
+  },
+  {
+    id: "job-24",
+    company: "Railway",
+    title: "Frontend Engineer",
+    match_score: 55,
+    salary: "$120k - $150k",
+    found_at: daysAgo(13),
+  },
+];

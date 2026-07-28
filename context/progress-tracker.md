@@ -6,9 +6,9 @@ Update this file after every completed feature. Any AI agent reading this should
 
 ## Current Status
 
-**Phase:** Phase 2 — Profile Page
-**Last completed:** 08 Resume PDF Generation from Profile
-**Next:** 09 Find Jobs Page — Full UI
+**Phase:** Phase 3 — Find Jobs Page
+**Last completed:** 09 Find Jobs Page — Full UI
+**Next:** 10 Adzuna Job Discovery
 
 ---
 
@@ -32,7 +32,7 @@ Update this file after every completed feature. Any AI agent reading this should
 
 ### Phase 3 — Find Jobs Page
 
-- [ ] 09 Find Jobs Page — Full UI
+- [x] 09 Find Jobs Page — Full UI
 - [ ] 10 Adzuna Job Discovery
 - [ ] 11 Filter + Sort + Pagination
 
@@ -60,7 +60,7 @@ Update this file after every completed feature. Any AI agent reading this should
 
 - **01 Homepage** — `public/` had no images, so the dashboard, jobs table, and agent-run previews are recreated as CSS/HTML mockups (not screenshots), matching the design.
 - **Marketing CTA style** — Per the design, the primary marketing button ("Get Started" / "Start for free") is dark (`bg-overlay-dark`), not the app's purple primary button from `ui-rules`. The purple primary spec still applies to in-app buttons.
-- **CTA routing** — All marketing CTAs link to `/login` for now; the auth-aware redirect (logged-in → `/dashboard`) will be wired in Feature 02.
+- **CTA routing** — Marketing “Get Started” / “Find Your First Match” go to `/login` when signed out and `/find-jobs` when signed in (homepage stays reachable; no bounce to dashboard via logo). Navbar CTA is **Get Started** → `/login` when signed out, and avatar menu (Profile + Sign out) when signed in — dashboard placeholder no longer duplicates Sign out.
 - **Root layout** — Switched fonts from Geist to Inter (`next/font/google`, `variable: "--font-sans"`) per `ui-rules`; set real page `metadata`.
 - **tsconfig** — Excluded gitignored tooling folders (`ECC`, `.claude`, `.cursor`, `graphify-out`) from TypeScript so `next build` type-checks only app code (an ECC skill sample was breaking the build).
 - **02 Auth — SDK reality vs docs** — The context files assumed a Supabase-style `@insforge/ssr` package (`createBrowserClient`/`createServerClient`, cookie SSR, `insforge.from(...)`). That package does not exist. Built against the real `@insforge/sdk` (browser-first: `createClient`, `auth.signInWithOAuth`, `auth.getCurrentUser`, `auth.signOut`, `insforge.database.from(...)`). `@insforge/react` is deprecated, so auth state uses a custom `AuthProvider`/`useUser()` context instead. `architecture.md`, `library-docs.md`, and `code-standards.md` were updated to match.
@@ -80,10 +80,10 @@ Update this file after every completed feature. Any AI agent reading this should
 - **04 Database Schema — server writes** — Superseded by Feature 06: profile writes use the browser SDK. Agent API routes (Feature 10) still need a server JWT pattern.
 - **04 Database Schema — storage docs aligned** — `architecture.md` / `build-plan.md` / `library-docs.md` now use bucket `resumes` + key `{user_id}/resume.pdf` (matches storage RLS).
 - **05 Profile Page — UI only** — Built to `context/designs/profile.png` with mock data + local React state. No InsForge save/upload (Feature 06). Save / Select Resume / Generate buttons are visual stubs.
-- **05 Profile Page — AppNavbar** — App shell uses `AppNavbar` (logo + Dashboard / Find Jobs / Profile). Active link uses accent color + purple underline (design override of ui-rules “no underline”). Marketing `Navbar` unchanged.
+- **05 Profile Page — AppNavbar** — App shell uses shared `Navbar` (logo → `/`, Dashboard / Find Jobs / Profile with lucide icons + active underline, CTA **Profile**). Marketing and app pages share the same chrome.
 - **05 Profile Page — Cover Letter Tone omitted** — Field exists on `Profile` type / DB but is not shown in the PNG; deferred to Feature 06 wiring.
 - **05 Profile Page — Email read-only** — Disabled input; auth-owned. Job titles seeking / preferred locations are free-text comma fields in the UI (arrays on save later).
-- **05 Profile Page — UI primitives** — Replaced with **shadcn/ui** (`components.json`, radix-nova). JobPilot tokens remain source of truth in `app/globals.css` (`--jp-*` + `@theme`); shadcn semantic vars map onto them. Prefer shadcn primitives for new UI.
+- **05 Profile Page — UI primitives** — Replaced with **shadcn/ui** (`components.json`, radix-nova). JobPilot tokens remain source of truth in `app/globals.css` (`--jp-*` + `@theme`); shadcn semantic vars map onto them. Prefer shadcn primitives for all form controls (Select / Checkbox / Button) — no native `<select>` wrappers.
 - **05 Profile Page — Completion** — `lib/profile-completion.ts` computes % + missing tags. Mock profile yields 70% with PHONE / LOCATION / EDUCATION missing.
 - **06 Profile Save — browser SDK writes** — Resolved Feature 02 deferral: `/profile` loads/saves via `lib/profile.ts` using the authenticated browser `insforge` client (RLS via session JWT). No Server Action / `@insforge/sdk/ssr` for profile. `is_complete` derived from `getProfileCompletion` (no DB columns for %/missing tags). Resume upload: PDF ≤5MB to `resumes` at `{user_id}/resume.pdf`, persist returned `data.url`. Cover letter tone still omitted from UI (unchanged on save). `profile_completed` fires when save flips incomplete→complete. Generate Resume remains Feature 08 stub.
 - **06 Profile Save — review hardening** — Vitest unit tests for profile/auth/storage helpers (`npm test`). AuthProvider preserves session only on transient errors (timeout/network); clears on auth rejection. Resume replace uploads first then removes stale prior keys (never delete-before-upload). Save uses auth email for completion; LinkedIn/portfolio require http(s) URLs; comma-list fields re-sync after save without clobbering mid-edit; resume feedback via Sonner toasts.
@@ -92,7 +92,8 @@ Update this file after every completed feature. Any AI agent reading this should
 - **08 Resume PDF Generation** — Generate Resume: client save-first dirty gate (`isProfileDirty` vs last loaded/saved baseline) then `POST /api/resume/generate` with Bearer JWT. Server loads saved `profiles` row, OpenRouter `generateObject` (temp 0.7, same `openrouter/free` + `withOpenRouterKeyFailover`) polishes summary/bullets, `@react-pdf/renderer` renders one-page A4 matching `context/templates/demo_resume.pdf` visual style. Uploads to private `resumes` at `{user_id}/resume.pdf`, updates `resume_pdf_url`; client refreshes preview. PostHog `resume_generated`. Button label **Generate Resume** + `FileText` icon (equal width with Extract).
 - **Resume AI shared rate limits + usage card** — Extract + Generate share Redis key `resume-ai:{userId}`; windows from `RESUME_AI_RATE_LIMIT_PER_MINUTE|HOUR|DAY` (defaults 3/15/40). Hits recorded whenever `REDIS_URL` is set; **429 only in production**. `GET /api/resume/usage` peeks without consuming. Profile `ResumeAiUsageCard` (Progress bars, combined-copy, 60s poll + refresh). Hidden in development or when user has BYOK keys. Deploy note: namespace renamed from `resume-extract:` (counters reset once).
 - **OpenRouter BYOK** — Profile section saves up to 5 encrypted OpenRouter keys (`profiles.openrouter_keys_enc`, AES-256-GCM via `BYOK_ENCRYPTION_SECRET`). API `GET/POST/DELETE /api/profile/openrouter-keys` verifies each key with OpenRouter before save. With BYOK: Extract/Generate use only user keys + skip shared rate limits; no platform-key fallback. Invalid/exhausted keys show a clear remove-to-switch message.
-- **UI — shadcn/ui** — Initialized shadcn (`radix` + `nova`, `components.json`). Primitives under `components/ui/` from the registry; JobPilot colors kept via `--jp-*` / `@theme` (brand purple stays `bg-accent`). Custom toaster (`toaster.tsx`) kept over default sonner for token-styled toasts. Dense profile dropdowns use `NativeSelect`; Radix `Select` available for richer menus. Progress used for usage card.
+- **UI — shadcn/ui** — Initialized shadcn (`radix` + `nova`, `components.json`). Primitives under `components/ui/` from the registry; JobPilot colors kept via `--jp-*` / `@theme` (brand purple stays `bg-accent`). Custom toaster (`toaster.tsx`) kept over default sonner for token-styled toasts. **Prefer shadcn for everything** — use registry `Select` / `Checkbox` / `Button` instead of native `<select>` / checkbox / raw buttons when counterparts exist. Removed `NativeSelect`. Progress used for usage card.
+- **09 Find Jobs Page — UI only** — Built `/find-jobs` to `context/designs/find-jobs.png` with mock data (`lib/mock-jobs.ts`). No Adzuna / InsForge jobs API (Features 10–11). Client-side filter / sort / pagination via `lib/find-jobs-list.ts` (`PAGE_SIZE = 6` to match design “1 to 6 of 24”). Columns match PNG (COMPANY, ROLE, MATCH SCORE, SALARY EST., DATE FOUND) — SOURCE and Adzuna credit omitted. Match score bars use design bands (≥90 `bg-success`, ≥80 `bg-info`, else `bg-warning`). Find Jobs button shows fixed success banner only. Rows link to `/find-jobs/[id]` (details page is Feature 12). `AppNavbar` gains lucide icons to match find-jobs chrome.
 
 ---
 

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MOCK_PROFILE } from "@/lib/mock-profile";
 import {
@@ -86,6 +86,10 @@ describe("fetchProfile", () => {
     mockUpdate.mockReturnValue({ eq: mockEq });
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("maps a database row to a Profile", async () => {
     mockSingle.mockResolvedValue({
       data: { ...MOCK_PROFILE, id: "user-1" },
@@ -101,18 +105,43 @@ describe("fetchProfile", () => {
     }
   });
 
-  it("returns a timeout-friendly error", async () => {
+  it("returns a timeout-friendly error after retries", async () => {
+    vi.useFakeTimers();
     mockSingle.mockResolvedValue({
       data: null,
       error: { message: "Request timed out" },
     });
 
-    const result = await fetchProfile("user-1");
+    const pending = fetchProfile("user-1");
+    await vi.runAllTimersAsync();
+    const result = await pending;
 
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error).toBe("Request timed out. Please try again.");
     }
+    // Transient SDK errors are retried (2 retries → 3 attempts).
+    expect(mockSingle).toHaveBeenCalledTimes(3);
+  });
+
+  it("recovers after a transient 504 then success", async () => {
+    vi.useFakeTimers();
+    mockSingle
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: "Gateway Timeout", statusCode: 504 },
+      })
+      .mockResolvedValueOnce({
+        data: { ...MOCK_PROFILE, id: "user-1" },
+        error: null,
+      });
+
+    const pending = fetchProfile("user-1");
+    await vi.runAllTimersAsync();
+    const result = await pending;
+
+    expect(result.success).toBe(true);
+    expect(mockSingle).toHaveBeenCalledTimes(2);
   });
 });
 

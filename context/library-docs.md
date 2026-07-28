@@ -77,6 +77,28 @@ const { user, isLoaded } = useUser();
 
 Route protection is client-side via `AuthGuard` (`components/auth/AuthGuard.tsx`) — there is no middleware.
 
+### Authed Next.js API calls (Bearer JWT)
+
+Server routes verify JWTs with `requireAuth` (`lib/api-auth.ts`). That path seeds a **static** `accessToken` client (no cookie refresh). Expired Bearer tokens therefore always return 401.
+
+**Always** call those routes through `authedFetch` (`lib/authed-fetch.ts`), not raw `fetch` + `getValidAccessToken()`:
+
+```typescript
+import { authedFetch } from "@/lib/authed-fetch";
+
+const response = await authedFetch("/api/resume/generate", { method: "POST" });
+```
+
+Behavior:
+
+1. `getAccessTokenForApi` (`lib/auth-access-token.ts`) reads a token with a 120s exp leeway and falls back to `auth.refreshSession()` when the SDK would otherwise return an already-expired JWT.
+2. On HTTP 401, force-refresh once and retry the request (FormData bodies are reusable).
+3. Concurrent refreshes share one in-flight promise.
+
+`AuthProvider` also refreshes proactively on tab focus / visibility and on an 8-minute interval so idle tabs do not keep a dead access JWT.
+
+Do **not** use `authedFetch` for InsForge SDK calls (`insforge.database` / storage) — the SDK refreshes on its own HTTP path.
+
 ---
 
 ### DB Queries
@@ -613,7 +635,8 @@ Install into `components/ui/`. Do not hand-roll primitives that already exist in
 - Prefer JobPilot Button variants: `primary` / `secondary` / `muted` / `danger` (aliases of shadcn defaults).
 - `Button` may take `pending` for spinner + `aria-busy` (compose pattern kept for profile UX).
 - Toasts: keep `components/ui/toaster.tsx` (token-styled Sonner) — do not swap to default shadcn sonner without matching bottom-right + semantic colors.
-- Dense form enums/dates: `NativeSelect`. Richer menus: Radix `Select` + `SelectItem`.
+- **Always use shadcn registry components first** (`Select`, `Checkbox`, `Button`, `Input`, …). Do not use native `<select>`, `<button>`, or `<input type="checkbox">` when a shadcn counterpart exists. Style triggers/fields with JobPilot tokens — never invent a parallel native wrapper.
+- Dropdowns: Radix `Select` + `SelectTrigger` / `SelectContent` / `SelectItem` (trigger chrome matches `Input`).
 - Use `cn()` from `@/lib/utils` for class merges.
 - Always `cursor-pointer` on clickable controls; no hover translate on buttons.
 

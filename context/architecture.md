@@ -296,7 +296,7 @@ Access: authenticated users only, own files only. RLS on `storage.objects` requi
 
 - SDK: `@insforge/sdk` (browser-first). There is no `@insforge/ssr` package.
 - Methods: Google OAuth, GitHub OAuth — configured in the InsForge dashboard.
-- Session: the SDK holds the access token in memory and a httpOnly refresh cookie; `auth.getCurrentUser()` rehydrates the session on load (survives reloads).
+- Session: the SDK holds the access token in memory and a httpOnly refresh cookie; `auth.getCurrentUser()` rehydrates the session on load (survives reloads). Next.js API routes that use `requireAuth` need a live Bearer JWT — clients must call them via `authedFetch` (refresh + 401 retry); `AuthProvider` also refreshes proactively on focus/visibility and on an interval.
 - Client auth state: `AuthProvider` (`components/auth/AuthProvider.tsx`) wraps the app via `app/providers.tsx` and exposes `useUser()` → `{ user, isLoaded, signOut }`.
 - OAuth flow: the login page calls `auth.signInWithOAuth(provider, { redirectTo: <origin>/callback })`; the SDK auto-detects `insforge_code` on `/callback` and exchanges it; `/callback` then redirects to `/dashboard`.
 - Protected routes: /dashboard, /profile, /find-jobs, /find-jobs/[id] — guarded client-side with `AuthGuard` (`components/auth/AuthGuard.tsx`) using `useUser()`, which redirects to `/login` when unauthenticated. There is no `middleware.ts`.

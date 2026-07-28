@@ -4,6 +4,7 @@ import { KeyRound, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
+import { OpenRouterKeysContentSkeleton } from "@/components/profile/skeletons/ProfilePageSkeleton";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -15,7 +16,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
-import { insforge } from "@/lib/insforge-client";
 import {
     addOpenRouterKey,
     fetchOpenRouterKeys,
@@ -43,15 +43,10 @@ export function OpenRouterKeysSection({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const token = await insforge.getHttpClient().getValidAccessToken();
-      if (!token) {
-        setError("Sign in to manage your OpenRouter keys");
-        setKeys([]);
-        return;
-      }
-      const result = await fetchOpenRouterKeys(token);
+      const result = await fetchOpenRouterKeys();
       if (!result.success) {
         setError(result.error);
+        setKeys([]);
         return;
       }
       setError(null);
@@ -74,12 +69,7 @@ export function OpenRouterKeysSection({
 
     setSaving(true);
     try {
-      const token = await insforge.getHttpClient().getValidAccessToken();
-      if (!token) {
-        toast.error("Sign in to add an OpenRouter key");
-        return;
-      }
-      const result = await addOpenRouterKey(token, trimmed);
+      const result = await addOpenRouterKey(trimmed);
       if (!result.success) {
         toast.error(result.error);
         return;
@@ -98,12 +88,7 @@ export function OpenRouterKeysSection({
   async function handleRemove(id: string) {
     setRemovingId(id);
     try {
-      const token = await insforge.getHttpClient().getValidAccessToken();
-      if (!token) {
-        toast.error("Sign in to remove a key");
-        return;
-      }
-      const result = await removeOpenRouterKey(token, id);
+      const result = await removeOpenRouterKey(id);
       if (!result.success) {
         toast.error(result.error);
         return;
@@ -147,12 +132,7 @@ export function OpenRouterKeysSection({
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        {loading ? (
-          <div className="flex items-center gap-2 text-sm text-text-secondary">
-            <Spinner size="sm" label="Loading keys" />
-            Loading keys…
-          </div>
-        ) : null}
+        {loading ? <OpenRouterKeysContentSkeleton /> : null}
 
         {!loading && error ? (
           <p className="text-sm text-error" role="alert">
@@ -206,36 +186,44 @@ export function OpenRouterKeysSection({
           </p>
         ) : null}
 
-        <form onSubmit={(e) => void handleAdd(e)} className="flex flex-col gap-2">
-          <Label htmlFor="openrouter-key" className="text-sm text-text-primary">
-            Paste a key, then add
-          </Label>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Input
-              id="openrouter-key"
-              type="password"
-              autoComplete="off"
-              spellCheck={false}
-              placeholder="sk-or-v1-…"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              disabled={saving || loading}
-              className="font-mono"
-            />
-            <Button
-              type="submit"
-              className="cursor-pointer shrink-0 disabled:cursor-not-allowed"
-              disabled={saving || loading || !input.trim()}
+        {!loading ? (
+          <form
+            onSubmit={(e) => void handleAdd(e)}
+            className="flex flex-col gap-2"
+          >
+            <Label
+              htmlFor="openrouter-key"
+              className="text-sm text-text-primary"
             >
-              {saving ? (
-                <Spinner size="sm" label="Saving" />
-              ) : (
-                <KeyRound className="size-4" aria-hidden />
-              )}
-              Add key
-            </Button>
-          </div>
-        </form>
+              Paste a key, then add
+            </Label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input
+                id="openrouter-key"
+                type="password"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="sk-or-v1-…"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                disabled={saving}
+                className="font-mono"
+              />
+              <Button
+                type="submit"
+                className="cursor-pointer shrink-0 disabled:cursor-not-allowed"
+                disabled={saving || !input.trim()}
+              >
+                {saving ? (
+                  <Spinner size="sm" label="Saving" />
+                ) : (
+                  <KeyRound className="size-4" aria-hidden />
+                )}
+                Add key
+              </Button>
+            </div>
+          </form>
+        ) : null}
       </CardContent>
     </Card>
   );

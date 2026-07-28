@@ -10,6 +10,7 @@ import {
     useState,
 } from "react";
 
+import { ResumeAiUsageCardSkeleton } from "@/components/profile/skeletons/ProfilePageSkeleton";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -19,8 +20,6 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Spinner } from "@/components/ui/spinner";
-import { insforge } from "@/lib/insforge-client";
 import {
     fetchResumeAiUsage,
     WINDOW_LABELS,
@@ -67,21 +66,15 @@ export const ResumeAiUsageCard = forwardRef<
     }
 
     try {
-      const token = await insforge.getHttpClient().getValidAccessToken();
-      if (!token) {
-        if (mountedRef.current) {
-          setError("Sign in to view Resume AI usage");
-          setData(null);
-          hasDataRef.current = false;
-        }
-        return;
-      }
-
-      const result = await fetchResumeAiUsage(token);
+      const result = await fetchResumeAiUsage();
       if (!mountedRef.current) return;
 
       if (!result.success) {
         setError(result.error);
+        if (result.error.toLowerCase().includes("unauthorized")) {
+          setData(null);
+          hasDataRef.current = false;
+        }
         return;
       }
 
@@ -157,14 +150,7 @@ export const ResumeAiUsageCard = forwardRef<
   }
 
   if (loading && !data) {
-    return (
-      <Card className={cn("border-border", className)}>
-        <CardContent className="flex items-center gap-3 py-6">
-          <Spinner size="sm" label="Loading Resume AI usage" />
-          <p className="text-sm text-text-secondary">Loading Resume AI usage…</p>
-        </CardContent>
-      </Card>
-    );
+    return <ResumeAiUsageCardSkeleton className={className} />;
   }
 
   if (!data) {
