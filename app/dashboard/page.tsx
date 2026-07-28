@@ -7,7 +7,8 @@ import { useEffect } from "react";
 
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useUser } from "@/components/auth/AuthProvider";
-import { SignOutButton } from "@/components/auth/SignOutButton";
+import { DashboardPageSkeleton } from "@/components/layout/DashboardPageSkeleton";
+import Navbar from "@/components/layout/Navbar";
 import { captureEvent } from "@/lib/analytics";
 
 function DashboardContent() {
@@ -18,19 +19,21 @@ function DashboardContent() {
   }, []);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-6 text-center">
-      <h1 className="text-xl font-semibold text-text-primary">
-        You are signed in
-      </h1>
-      <p className="text-sm text-text-secondary">{user?.email}</p>
-      <SignOutButton />
-    </main>
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      <main className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
+        <h1 className="text-xl font-semibold text-text-primary">
+          You are signed in
+        </h1>
+        <p className="text-sm text-text-secondary">{user?.email}</p>
+      </main>
+    </div>
   );
 }
 
 export default function DashboardPage() {
   return (
-    <AuthGuard>
+    <AuthGuard fallback={<DashboardPageSkeleton />}>
       <DashboardContent />
     </AuthGuard>
   );

@@ -9,14 +9,14 @@ const {
   mockFetchResumeBlob,
   mockToastSuccess,
   mockToastError,
-  mockGetValidAccessToken,
+  mockAuthedFetch,
   mockCaptureEvent,
 } = vi.hoisted(() => ({
   mockUploadResume: vi.fn(),
   mockFetchResumeBlob: vi.fn(),
   mockToastSuccess: vi.fn(),
   mockToastError: vi.fn(),
-  mockGetValidAccessToken: vi.fn(),
+  mockAuthedFetch: vi.fn(),
   mockCaptureEvent: vi.fn(),
 }));
 
@@ -25,12 +25,8 @@ vi.mock("@/lib/profile", () => ({
   fetchResumeBlob: mockFetchResumeBlob,
 }));
 
-vi.mock("@/lib/insforge-client", () => ({
-  insforge: {
-    getHttpClient: () => ({
-      getValidAccessToken: mockGetValidAccessToken,
-    }),
-  },
+vi.mock("@/lib/authed-fetch", () => ({
+  authedFetch: (...args: unknown[]) => mockAuthedFetch(...args),
 }));
 
 vi.mock("@/lib/analytics", () => ({
@@ -84,7 +80,10 @@ describe("ResumeUpload", () => {
       success: true,
       data: new Blob(["%PDF"], { type: "application/pdf" }),
     });
-    mockGetValidAccessToken.mockResolvedValue("jwt-token");
+    mockAuthedFetch.mockImplementation(
+      (input: RequestInfo | URL, init?: RequestInit) =>
+        (globalThis.fetch as typeof fetch)(input, init),
+    );
   });
 
   it("uploads a selected PDF and toasts success", async () => {
@@ -263,6 +262,7 @@ describe("ResumeUpload", () => {
 
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
+      status: 200,
       json: async () => ({ success: true, data: extracted }),
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -280,12 +280,10 @@ describe("ResumeUpload", () => {
     );
 
     await waitFor(() => {
-      expect(mockGetValidAccessToken).toHaveBeenCalled();
-      expect(fetchMock).toHaveBeenCalledWith(
+      expect(mockAuthedFetch).toHaveBeenCalledWith(
         "/api/resume/extract",
         expect.objectContaining({
           method: "POST",
-          headers: { Authorization: "Bearer jwt-token" },
         }),
       );
       expect(onExtracted).toHaveBeenCalledWith(extracted);
@@ -331,6 +329,7 @@ describe("ResumeUpload", () => {
 
     resolveFetch({
       ok: true,
+      status: 200,
       json: async () => ({
         success: true,
         data: {
@@ -385,6 +384,7 @@ describe("ResumeUpload", () => {
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
+        status: 200,
         json: async () => ({
           success: true,
           data: { resume_pdf_url: generatedUrl },
@@ -408,9 +408,8 @@ describe("ResumeUpload", () => {
       });
     });
 
-    expect(fetch).toHaveBeenCalledWith("/api/resume/generate", {
+    expect(mockAuthedFetch).toHaveBeenCalledWith("/api/resume/generate", {
       method: "POST",
-      headers: { Authorization: "Bearer jwt-token" },
     });
   });
 });

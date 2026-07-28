@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { useUser } from "@/components/auth/AuthProvider";
+import { LoginPageSkeleton } from "@/components/auth/LoginPageSkeleton";
 import Navbar from "@/components/layout/Navbar";
 import {
     captureEvent,
@@ -69,18 +70,6 @@ function ShieldIcon() {
   );
 }
 
-function AuthLoadingScreen() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <span
-        className="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-accent"
-        aria-hidden="true"
-      />
-      <span className="sr-only">Loading</span>
-    </div>
-  );
-}
-
 export default function LoginPage() {
   const router = useRouter();
   const { user, isLoaded } = useUser();
@@ -123,7 +112,7 @@ export default function LoginPage() {
 
   // Auth still hydrating, or signed-in user about to leave — no form flash, no clicks.
   if (!isLoaded || user) {
-    return <AuthLoadingScreen />;
+    return <LoginPageSkeleton />;
   }
 
   const isBusy = pending !== null;

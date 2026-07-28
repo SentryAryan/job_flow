@@ -2,7 +2,13 @@
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import type { Profile } from "@/types";
 
 type PersonalInfoSectionProps = {
@@ -77,15 +83,21 @@ export function PersonalInfoSection({
         </div>
         <div className="sm:col-span-2">
           <Label htmlFor="work_authorization">Work Authorization</Label>
-          <NativeSelect
-            id="work_authorization"
+          <Select
             value={profile.work_authorization ?? "citizen"}
-            onChange={(e) => onChange({ work_authorization: e.target.value })}
+            onValueChange={(value) => onChange({ work_authorization: value })}
           >
-            <option value="citizen">Citizen</option>
-            <option value="permanent_resident">Permanent Resident</option>
-            <option value="visa_required">Visa Required</option>
-          </NativeSelect>
+            <SelectTrigger id="work_authorization">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="citizen">Citizen</SelectItem>
+              <SelectItem value="permanent_resident">
+                Permanent Resident
+              </SelectItem>
+              <SelectItem value="visa_required">Visa Required</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
     </section>

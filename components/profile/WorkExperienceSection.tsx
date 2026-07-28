@@ -2,9 +2,17 @@
 
 import { useRef } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { WorkExperienceRole } from "@/types";
 
@@ -25,6 +33,17 @@ const MONTHS = [
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 50 }, (_, i) => CURRENT_YEAR - i);
+
+/** Radix Select forbids empty string values — keep selects always controlled. */
+const SELECT_EMPTY = "__empty__";
+
+function toSelectValue(value: string): string {
+  return value || SELECT_EMPTY;
+}
+
+function fromSelectValue(value: string): string {
+  return value === SELECT_EMPTY ? "" : value;
+}
 
 function parseYearMonth(value: string | null): { month: string; year: string } {
   if (!value) return { month: "", year: "" };
@@ -94,13 +113,14 @@ export function WorkExperienceSection({
           Work Experience
         </h3>
         {roles.length < 3 ? (
-          <button
+          <Button
             type="button"
+            variant="link"
             onClick={addRole}
-            className="cursor-pointer text-sm font-medium text-accent hover:text-accent-dark"
+            className="h-auto p-0 text-sm font-medium text-accent hover:text-accent-dark"
           >
             + Add role
-          </button>
+          </Button>
         ) : null}
       </div>
 
@@ -109,6 +129,7 @@ export function WorkExperienceSection({
           const start = parseYearMonth(role.start_date);
           const end = parseYearMonth(role.end_date);
           const clientId = clientIdsRef.current[index] ?? `role-${index}`;
+          const currentId = `is-current-${clientId}`;
 
           return (
             <div
@@ -117,13 +138,14 @@ export function WorkExperienceSection({
             >
               {roles.length > 1 ? (
                 <div className="mb-3 flex justify-end">
-                  <button
+                  <Button
                     type="button"
+                    variant="link"
                     onClick={() => removeRole(index)}
-                    className="cursor-pointer text-xs font-medium text-error hover:underline"
+                    className="h-auto p-0 text-xs font-medium text-error hover:underline"
                   >
                     Remove
-                  </button>
+                  </Button>
                 </div>
               ) : null}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -152,100 +174,132 @@ export function WorkExperienceSection({
                 <div>
                   <Label>Start Date</Label>
                   <div className="grid grid-cols-2 gap-2">
-                    <NativeSelect
-                      aria-label={`Start month role ${index + 1}`}
-                      value={start.month}
-                      onChange={(e) =>
+                    <Select
+                      value={toSelectValue(start.month)}
+                      onValueChange={(value) =>
                         updateRole(index, {
-                          start_date: toYearMonth(e.target.value, start.year),
+                          start_date: toYearMonth(
+                            fromSelectValue(value),
+                            start.year,
+                          ),
                         })
                       }
                     >
-                      <option value="">Month</option>
-                      {MONTHS.map((name, monthIndex) => (
-                        <option
-                          key={name}
-                          value={String(monthIndex + 1).padStart(2, "0")}
-                        >
-                          {name}
-                        </option>
-                      ))}
-                    </NativeSelect>
-                    <NativeSelect
-                      aria-label={`Start year role ${index + 1}`}
-                      value={start.year}
-                      onChange={(e) =>
+                      <SelectTrigger
+                        aria-label={`Start month role ${index + 1}`}
+                      >
+                        <SelectValue placeholder="Month" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={SELECT_EMPTY}>Month</SelectItem>
+                        {MONTHS.map((name, monthIndex) => (
+                          <SelectItem
+                            key={name}
+                            value={String(monthIndex + 1).padStart(2, "0")}
+                          >
+                            {name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={toSelectValue(start.year)}
+                      onValueChange={(value) =>
                         updateRole(index, {
-                          start_date: toYearMonth(start.month, e.target.value),
+                          start_date: toYearMonth(
+                            start.month,
+                            fromSelectValue(value),
+                          ),
                         })
                       }
                     >
-                      <option value="">Year</option>
-                      {YEARS.map((year) => (
-                        <option key={year} value={String(year)}>
-                          {year}
-                        </option>
-                      ))}
-                    </NativeSelect>
+                      <SelectTrigger
+                        aria-label={`Start year role ${index + 1}`}
+                      >
+                        <SelectValue placeholder="Year" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={SELECT_EMPTY}>Year</SelectItem>
+                        {YEARS.map((year) => (
+                          <SelectItem key={year} value={String(year)}>
+                            {year}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 <div>
                   <Label>End Date</Label>
                   <div className="grid grid-cols-2 gap-2">
-                    <NativeSelect
-                      aria-label={`End month role ${index + 1}`}
-                      value={end.month}
+                    <Select
+                      value={toSelectValue(end.month)}
                       disabled={role.is_current}
-                      onChange={(e) =>
+                      onValueChange={(value) =>
                         updateRole(index, {
                           end_date:
-                            toYearMonth(e.target.value, end.year) || null,
+                            toYearMonth(fromSelectValue(value), end.year) ||
+                            null,
                         })
                       }
                     >
-                      <option value="">Month</option>
-                      {MONTHS.map((name, monthIndex) => (
-                        <option
-                          key={name}
-                          value={String(monthIndex + 1).padStart(2, "0")}
-                        >
-                          {name}
-                        </option>
-                      ))}
-                    </NativeSelect>
-                    <NativeSelect
-                      aria-label={`End year role ${index + 1}`}
-                      value={end.year}
+                      <SelectTrigger aria-label={`End month role ${index + 1}`}>
+                        <SelectValue placeholder="Month" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={SELECT_EMPTY}>Month</SelectItem>
+                        {MONTHS.map((name, monthIndex) => (
+                          <SelectItem
+                            key={name}
+                            value={String(monthIndex + 1).padStart(2, "0")}
+                          >
+                            {name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={toSelectValue(end.year)}
                       disabled={role.is_current}
-                      onChange={(e) =>
+                      onValueChange={(value) =>
                         updateRole(index, {
                           end_date:
-                            toYearMonth(end.month, e.target.value) || null,
+                            toYearMonth(end.month, fromSelectValue(value)) ||
+                            null,
                         })
                       }
                     >
-                      <option value="">Year</option>
-                      {YEARS.map((year) => (
-                        <option key={year} value={String(year)}>
-                          {year}
-                        </option>
-                      ))}
-                    </NativeSelect>
+                      <SelectTrigger aria-label={`End year role ${index + 1}`}>
+                        <SelectValue placeholder="Year" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={SELECT_EMPTY}>Year</SelectItem>
+                        {YEARS.map((year) => (
+                          <SelectItem key={year} value={String(year)}>
+                            {year}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm text-text-primary">
-                    <input
-                      type="checkbox"
+                  <div className="mt-2 flex items-center gap-2">
+                    <Checkbox
+                      id={currentId}
                       checked={role.is_current}
-                      onChange={(e) =>
+                      onCheckedChange={(checked) =>
                         updateRole(index, {
-                          is_current: e.target.checked,
-                          end_date: e.target.checked ? null : role.end_date,
+                          is_current: checked === true,
+                          end_date: checked === true ? null : role.end_date,
                         })
                       }
-                      className="h-4 w-4 cursor-pointer rounded border-border accent-[var(--color-accent)]"
                     />
-                    Currently working here
-                  </label>
+                    <Label
+                      htmlFor={currentId}
+                      className="mb-0 cursor-pointer text-sm font-normal normal-case leading-none tracking-normal text-text-primary"
+                    >
+                      Currently working here
+                    </Label>
+                  </div>
                 </div>
                 <div className="sm:col-span-2">
                   <Label htmlFor={`responsibilities-${clientId}`}>

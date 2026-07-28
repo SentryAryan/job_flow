@@ -5,12 +5,16 @@ import type { ReactNode } from "react";
 import { useEffect } from "react";
 
 import { useUser } from "@/components/auth/AuthProvider";
+import { DefaultMainSkeleton } from "@/components/layout/DefaultMainSkeleton";
+import Navbar from "@/components/layout/Navbar";
 
 type Props = {
   children: ReactNode;
+  /** Page-shaped skeleton shown while auth hydrates or redirecting to login. */
+  fallback?: ReactNode;
 };
 
-export function AuthGuard({ children }: Props) {
+export function AuthGuard({ children, fallback }: Props) {
   const router = useRouter();
   const { user, isLoaded } = useUser();
 
@@ -22,11 +26,9 @@ export function AuthGuard({ children }: Props) {
 
   if (!isLoaded || !user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <span
-          className="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-accent"
-          aria-hidden="true"
-        />
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        {fallback ?? <DefaultMainSkeleton />}
       </div>
     );
   }

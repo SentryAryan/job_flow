@@ -293,9 +293,9 @@ import { Button } from "../../../components/ui/button";
 
 Never install a new package without a clear reason. Before installing anything check:
 
-1. Does shadcn/ui already have this component?
+1. Does shadcn/ui already have this component? If yes, add it from the registry and use it — do not fall back to a native HTML control.
 2. Does Next.js already provide this functionality?
-3. Is there a simpler native solution?
+3. Only after ruling out shadcn and Next.js, consider another library (never prefer raw native form controls over an existing shadcn counterpart).
 
 Approved dependencies for this project:
 

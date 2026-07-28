@@ -9,9 +9,9 @@ export {
     CardHeader,
     CardTitle
 } from "./card";
+export { Checkbox } from "./checkbox";
 export { Input } from "./input";
 export { Label } from "./label";
-export { NativeSelect } from "./native-select";
 export { Progress } from "./progress";
 export {
     Select,
@@ -25,6 +25,7 @@ export {
     SelectTrigger,
     SelectValue
 } from "./select";
+export { Skeleton } from "./skeleton";
 export { Spinner } from "./spinner";
 export { Tag } from "./tag";
 export { Textarea } from "./textarea";
