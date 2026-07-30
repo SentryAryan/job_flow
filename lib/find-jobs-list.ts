@@ -1,4 +1,6 @@
-export type MockJobRow = {
+import { MATCH_THRESHOLD } from "@/lib/utils";
+
+export type JobListRow = {
   id: string;
   company: string;
   title: string;
@@ -6,6 +8,9 @@ export type MockJobRow = {
   salary: string;
   found_at: string;
 };
+
+/** @deprecated Use JobListRow */
+export type MockJobRow = JobListRow;
 
 export type MatchFilter = "all" | "high" | "low";
 export type SortOption = "match_score" | "newest" | "oldest";
@@ -25,9 +30,26 @@ export function isSortOption(value: string): value is SortOption {
   return (SORT_OPTIONS as readonly string[]).includes(value);
 }
 
-export const FIND_JOBS_PAGE_SIZE = 6;
+/** Default page size (Feature 11). */
+export const FIND_JOBS_PAGE_SIZE = 20;
 
-export const HIGH_MATCH_THRESHOLD = 70;
+export const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
+export type PageSizeOption = (typeof PAGE_SIZE_OPTIONS)[number];
+
+export function isPageSizeOption(value: number): value is PageSizeOption {
+  return (PAGE_SIZE_OPTIONS as readonly number[]).includes(value);
+}
+
+export function parsePageSizeParam(
+  raw: string | null | undefined,
+  fallback: PageSizeOption = FIND_JOBS_PAGE_SIZE,
+): PageSizeOption {
+  if (raw == null || raw.trim() === "") return fallback;
+  const n = Number.parseInt(raw.trim(), 10);
+  return isPageSizeOption(n) ? n : fallback;
+}
+
+export const HIGH_MATCH_THRESHOLD = MATCH_THRESHOLD;
 
 /** Find Jobs design: 90+ green, 80–89 blue, else orange. */
 export function getMatchScoreBarClass(score: number): string {
@@ -37,10 +59,10 @@ export function getMatchScoreBarClass(score: number): string {
 }
 
 export function filterJobs(
-  jobs: readonly MockJobRow[],
+  jobs: readonly JobListRow[],
   query: string,
   matchFilter: MatchFilter,
-): MockJobRow[] {
+): JobListRow[] {
   const normalized = query.trim().toLowerCase();
 
   return jobs.filter((job) => {
@@ -59,9 +81,9 @@ export function filterJobs(
 }
 
 export function sortJobs(
-  jobs: readonly MockJobRow[],
+  jobs: readonly JobListRow[],
   sort: SortOption,
-): MockJobRow[] {
+): JobListRow[] {
   const copy = [...jobs];
 
   switch (sort) {
@@ -85,7 +107,7 @@ export function sortJobs(
 }
 
 export type PaginatedJobs = {
-  items: MockJobRow[];
+  items: JobListRow[];
   page: number;
   total: number;
   totalPages: number;
@@ -94,7 +116,7 @@ export type PaginatedJobs = {
 };
 
 export function paginateJobs(
-  jobs: readonly MockJobRow[],
+  jobs: readonly JobListRow[],
   page: number,
   pageSize: number = FIND_JOBS_PAGE_SIZE,
 ): PaginatedJobs {
@@ -176,4 +198,51 @@ export function formatRelativeFoundAt(
   }
   if (diffDays === 1) return "Yesterday";
   return `${diffDays} days ago`;
+}
+
+export function jobToListRow(job: {
+  id: string;
+  company: string | null;
+  title: string | null;
+  match_score: number | null;
+  salary: string | null;
+  found_at: string;
+}): JobListRow {
+  return {
+    id: job.id,
+    company: job.company?.trim() || "Unknown company",
+    title: job.title?.trim() || "Untitled role",
+    match_score:
+      typeof job.match_score === "number" && Number.isFinite(job.match_score)
+        ? Math.max(0, Math.min(100, Math.round(job.match_score)))
+        : 0,
+    salary: job.salary?.trim() || "—",
+    found_at: job.found_at,
+  };
+}
+
+export type JobsListQuery = {
+  query?: string;
+  matchFilter?: MatchFilter;
+  sort?: SortOption;
+  page?: number;
+  pageSize?: number;
+};
+
+/** Shared filter → sort → paginate pipeline for API + client. */
+export function buildJobsListPage(
+  jobs: readonly JobListRow[],
+  options: JobsListQuery = {},
+): PaginatedJobs & { pageSize: number } {
+  const pageSize = isPageSizeOption(options.pageSize ?? FIND_JOBS_PAGE_SIZE)
+    ? (options.pageSize ?? FIND_JOBS_PAGE_SIZE)
+    : FIND_JOBS_PAGE_SIZE;
+  const filtered = filterJobs(
+    jobs,
+    options.query ?? "",
+    options.matchFilter ?? "all",
+  );
+  const sorted = sortJobs(filtered, options.sort ?? "match_score");
+  const page = paginateJobs(sorted, options.page ?? 1, pageSize);
+  return { ...page, pageSize };
 }

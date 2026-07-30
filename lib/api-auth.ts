@@ -1,10 +1,13 @@
 import { createClient, type UserSchema } from "@insforge/sdk";
 
+import { errorMessage, isTransientError } from "@/lib/errors";
+import { INSFORGE_SERVER_TIMEOUT_MS } from "@/lib/insforge-server";
+
 export type AuthenticatedUser = UserSchema;
 
 export type AuthResult =
   | { success: true; user: AuthenticatedUser; accessToken: string }
-  | { success: false; status: 401; error: string };
+  | { success: false; status: 401 | 503; error: string };
 
 function parseBearerToken(authorization: string | null): string | null {
   if (!authorization) return null;
@@ -45,10 +48,19 @@ export async function requireAuth(
     baseUrl,
     anonKey,
     accessToken,
+    timeout: INSFORGE_SERVER_TIMEOUT_MS,
   });
 
   const { data, error } = await client.auth.getCurrentUser();
   if (error || !data?.user) {
+    if (error && isTransientError(error)) {
+      console.error("[api-auth] getCurrentUser transient", errorMessage(error));
+      return {
+        success: false,
+        status: 503,
+        error: "Authentication service timed out. Please try again.",
+      };
+    }
     return {
       success: false,
       status: 401,

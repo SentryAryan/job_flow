@@ -2,20 +2,24 @@ import { describe, expect, it } from "vitest";
 
 import {
     FIND_JOBS_PAGE_SIZE,
+    PAGE_SIZE_OPTIONS,
+    buildJobsListPage,
     filterJobs,
     formatRelativeFoundAt,
     getMatchScoreBarClass,
     getPaginationItems,
     isMatchFilter,
+    isPageSizeOption,
     isSortOption,
     paginateJobs,
+    parsePageSizeParam,
     sortJobs,
+    type JobListRow,
     type MatchFilter,
-    type MockJobRow,
     type SortOption,
 } from "@/lib/find-jobs-list";
 
-const sampleJobs: MockJobRow[] = [
+const sampleJobs: JobListRow[] = [
   {
     id: "1",
     company: "Vercel",
@@ -122,27 +126,27 @@ describe("sortJobs", () => {
 });
 
 describe("paginateJobs", () => {
-  it("uses FIND_JOBS_PAGE_SIZE of 6", () => {
-    expect(FIND_JOBS_PAGE_SIZE).toBe(6);
+  it("defaults FIND_JOBS_PAGE_SIZE to 20", () => {
+    expect(FIND_JOBS_PAGE_SIZE).toBe(20);
   });
 
-  it("returns the correct slice and totals", () => {
-    const many = Array.from({ length: 24 }, (_, i) => ({
+  it("returns the correct slice and totals for custom page size", () => {
+    const many = Array.from({ length: 45 }, (_, i) => ({
       ...sampleJobs[0]!,
       id: String(i + 1),
     }));
-    const page1 = paginateJobs(many, 1);
-    expect(page1.items).toHaveLength(6);
-    expect(page1.total).toBe(24);
-    expect(page1.totalPages).toBe(4);
+    const page1 = paginateJobs(many, 1, 10);
+    expect(page1.items).toHaveLength(10);
+    expect(page1.total).toBe(45);
+    expect(page1.totalPages).toBe(5);
     expect(page1.from).toBe(1);
-    expect(page1.to).toBe(6);
+    expect(page1.to).toBe(10);
     expect(page1.items[0]!.id).toBe("1");
 
-    const page2 = paginateJobs(many, 2);
-    expect(page2.from).toBe(7);
-    expect(page2.to).toBe(12);
-    expect(page2.items[0]!.id).toBe("7");
+    const page2 = paginateJobs(many, 2, 10);
+    expect(page2.from).toBe(11);
+    expect(page2.to).toBe(20);
+    expect(page2.items[0]!.id).toBe("11");
   });
 
   it("clamps page below 1 to page 1", () => {
@@ -209,6 +213,54 @@ describe("isMatchFilter / isSortOption", () => {
     expect(isSortOption("newest")).toBe(true);
     expect(isSortOption("oldest")).toBe(true);
     expect(isSortOption("salary")).toBe(false);
+  });
+});
+
+describe("page size helpers", () => {
+  it("exposes 10 / 20 / 50 options", () => {
+    expect(PAGE_SIZE_OPTIONS).toEqual([10, 20, 50]);
+  });
+
+  it("narrows valid page sizes", () => {
+    expect(isPageSizeOption(10)).toBe(true);
+    expect(isPageSizeOption(20)).toBe(true);
+    expect(isPageSizeOption(50)).toBe(true);
+    expect(isPageSizeOption(6)).toBe(false);
+    expect(isPageSizeOption(25)).toBe(false);
+  });
+
+  it("parsePageSizeParam falls back for invalid values", () => {
+    expect(parsePageSizeParam("10")).toBe(10);
+    expect(parsePageSizeParam("50")).toBe(50);
+    expect(parsePageSizeParam("15")).toBe(FIND_JOBS_PAGE_SIZE);
+    expect(parsePageSizeParam(null)).toBe(FIND_JOBS_PAGE_SIZE);
+    expect(parsePageSizeParam("abc", 10)).toBe(10);
+  });
+});
+
+describe("buildJobsListPage", () => {
+  it("filters, sorts, and paginates with pageSize", () => {
+    const page = buildJobsListPage(sampleJobs, {
+      matchFilter: "high",
+      sort: "match_score",
+      page: 1,
+      pageSize: 10,
+    });
+    expect(page.pageSize).toBe(10);
+    expect(page.items.map((j) => j.id)).toEqual(["1", "3"]);
+    expect(page.total).toBe(2);
+    expect(page.from).toBe(1);
+    expect(page.to).toBe(2);
+  });
+
+  it("applies text query before pagination", () => {
+    const page = buildJobsListPage(sampleJobs, {
+      query: "stripe",
+      page: 1,
+      pageSize: 10,
+    });
+    expect(page.total).toBe(1);
+    expect(page.items[0]!.company.toLowerCase()).toContain("stripe");
   });
 });
 

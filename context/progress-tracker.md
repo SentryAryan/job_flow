@@ -7,8 +7,8 @@ Update this file after every completed feature. Any AI agent reading this should
 ## Current Status
 
 **Phase:** Phase 3 — Find Jobs Page
-**Last completed:** 09 Find Jobs Page — Full UI
-**Next:** 10 Adzuna Job Discovery
+**Last completed:** 11 Filter + Sort + Pagination
+**Next:** 12 Job Details Page — Full UI
 
 ---
 
@@ -33,8 +33,8 @@ Update this file after every completed feature. Any AI agent reading this should
 ### Phase 3 — Find Jobs Page
 
 - [x] 09 Find Jobs Page — Full UI
-- [ ] 10 Adzuna Job Discovery
-- [ ] 11 Filter + Sort + Pagination
+- [x] 10 Adzuna Job Discovery
+- [x] 11 Filter + Sort + Pagination
 
 
 
@@ -90,10 +90,12 @@ Update this file after every completed feature. Any AI agent reading this should
 - **06 Profile Save — view/download resume** — When `resume_pdf_url` is set, `/profile` shows an authenticated inline PDF preview (`fetchResumeBlob` → blob URL iframe) with Expand (modal) and Download. Blobs are normalized to `application/pdf` so the browser renders instead of downloading an untyped UUID file.
 - **07 AI Profile Extraction** — Extract from Resume (after upload) POSTs the PDF to `POST /api/resume/extract` with InsForge Bearer JWT (`lib/api-auth.ts`). Server uses `pdf-parse` v2 (`PDFParse` + `%PDF` magic-byte check) then Vercel AI SDK `generateObject` via OpenRouter model `openrouter/free` (response-healing). Env: server-only `OPENROUTER_API_KEYS` (multi-key failover) or `OPENROUTER_API_KEY`, plus `AI_PROVIDER`, `AI_MODEL`. Shared Resume AI Redis pool with Generate (see below). Client merges into form state via `mergeExtractedIntoProfile` (no auto-save). Success requires substantive fields (not salary-only). Provider swap + key rotation live in `lib/ai/provider.ts`.
 - **08 Resume PDF Generation** — Generate Resume: client save-first dirty gate (`isProfileDirty` vs last loaded/saved baseline) then `POST /api/resume/generate` with Bearer JWT. Server loads saved `profiles` row, OpenRouter `generateObject` (temp 0.7, same `openrouter/free` + `withOpenRouterKeyFailover`) polishes summary/bullets, `@react-pdf/renderer` renders one-page A4 matching `context/templates/demo_resume.pdf` visual style. Uploads to private `resumes` at `{user_id}/resume.pdf`, updates `resume_pdf_url`; client refreshes preview. PostHog `resume_generated`. Button label **Generate Resume** + `FileText` icon (equal width with Extract).
-- **Resume AI shared rate limits + usage card** — Extract + Generate share Redis key `resume-ai:{userId}`; windows from `RESUME_AI_RATE_LIMIT_PER_MINUTE|HOUR|DAY` (defaults 3/15/40). Hits recorded whenever `REDIS_URL` is set; **429 only in production**. `GET /api/resume/usage` peeks without consuming. Profile `ResumeAiUsageCard` (Progress bars, combined-copy, 60s poll + refresh). Hidden in development or when user has BYOK keys. Deploy note: namespace renamed from `resume-extract:` (counters reset once).
+- **Resume AI shared rate limits + usage card** — Extract + Generate + Find Jobs share Redis key `resume-ai:{userId}`; windows from `RESUME_AI_RATE_LIMIT_PER_MINUTE|HOUR|DAY` (defaults 3/15/40). Extract/Generate: one hit per request. Find Jobs: **one hit per successful AI scoring batch** (batches of 5; admission peeks without consuming; mid-search exhaustion → skill-overlap fallback for remaining batches). Hits recorded whenever `REDIS_URL` is set; **429 only in production**. `GET /api/resume/usage` peeks without consuming. Profile `ResumeAiUsageCard` (Progress bars, combined-copy, 60s poll + refresh). Hidden in development or when user has BYOK keys. Deploy note: namespace renamed from `resume-extract:` (counters reset once).
 - **OpenRouter BYOK** — Profile section saves up to 5 encrypted OpenRouter keys (`profiles.openrouter_keys_enc`, AES-256-GCM via `BYOK_ENCRYPTION_SECRET`). API `GET/POST/DELETE /api/profile/openrouter-keys` verifies each key with OpenRouter before save. With BYOK: Extract/Generate use only user keys + skip shared rate limits; no platform-key fallback. Invalid/exhausted keys show a clear remove-to-switch message.
 - **UI — shadcn/ui** — Initialized shadcn (`radix` + `nova`, `components.json`). Primitives under `components/ui/` from the registry; JobPilot colors kept via `--jp-*` / `@theme` (brand purple stays `bg-accent`). Custom toaster (`toaster.tsx`) kept over default sonner for token-styled toasts. **Prefer shadcn for everything** — use registry `Select` / `Checkbox` / `Button` instead of native `<select>` / checkbox / raw buttons when counterparts exist. Removed `NativeSelect`. Progress used for usage card.
 - **09 Find Jobs Page — UI only** — Built `/find-jobs` to `context/designs/find-jobs.png` with mock data (`lib/mock-jobs.ts`). No Adzuna / InsForge jobs API (Features 10–11). Client-side filter / sort / pagination via `lib/find-jobs-list.ts` (`PAGE_SIZE = 6` to match design “1 to 6 of 24”). Columns match PNG (COMPANY, ROLE, MATCH SCORE, SALARY EST., DATE FOUND) — SOURCE and Adzuna credit omitted. Match score bars use design bands (≥90 `bg-success`, ≥80 `bg-info`, else `bg-warning`). Find Jobs button shows fixed success banner only. Rows link to `/find-jobs/[id]` (details page is Feature 12). `AppNavbar` gains lucide icons to match find-jobs chrome.
+- **10–11 Adzuna discovery + real list** — `POST /api/agent/find` (Bearer JWT → `createAuthedInsforgeClient`): Adzuna search by `what` + optional `where` only — **no `category` filter** (`lib/adzuna.ts`), sector-agnostic OpenRouter `generateObject` scoring (`agent/match-score.ts` + `agent/adzuna.ts`, same provider/failover/BYOK as Extract/Generate), writes `agent_runs` / `jobs` / `agent_logs`, returns banner counts. Shared Resume AI Redis pool (`resume-ai:{userId}`) — skipped with BYOK; **+1 hit per successful scoring batch** (not per click); 429 only in production. Find Jobs list via `GET /api/jobs` (Postgres filter/sort/`range` + exact count via `lib/jobs-list-query.ts`; query `page`, `pageSize` 10|20|50, `q` company|title, `match`, `sort`); client `fetchJobsPage`. Default page size 20; Rows select in pagination. Loading: table skeleton, search progress banner + overlay with rotating status copy. High match ≥70. PostHog `job_search_started` / `job_found`. Navbar avatar dropdown embeds compact AI usage + OpenRouter keys panels. SOURCE / Adzuna credit still omitted (design follow-up).
+- **10–11 Scoring harden + InsForge timeouts** — Match scoring batches 5 jobs, hardened prompt/schema (compact JSON `{scores:[]}` only), heals markdown fences / bare arrays / truncated JSON before skill-overlap fallback. Server InsForge clients use 60s timeout; `requireAuth` maps auth timeouts to 503 (not 401); `GET /api/jobs` maps DB timeouts to 504.
 
 ---
 

@@ -2,7 +2,17 @@
 
 import { Button } from "@/components/ui/button";
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
     getPaginationItems,
+    isPageSizeOption,
+    PAGE_SIZE_OPTIONS,
+    type PageSizeOption,
     type PaginationItem,
 } from "@/lib/find-jobs-list";
 import { cn } from "@/lib/utils";
@@ -13,7 +23,10 @@ type JobsPaginationProps = {
   from: number;
   to: number;
   total: number;
+  pageSize: PageSizeOption;
   onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: PageSizeOption) => void;
+  disabled?: boolean;
   className?: string;
 };
 
@@ -21,10 +34,12 @@ function PageButton({
   item,
   currentPage,
   onPageChange,
+  disabled,
 }: {
   item: PaginationItem;
   currentPage: number;
   onPageChange: (page: number) => void;
+  disabled?: boolean;
 }) {
   if (item === "ellipsis") {
     return (
@@ -44,11 +59,12 @@ function PageButton({
       type="button"
       variant={isActive ? "primary" : "outline"}
       size="icon-sm"
+      disabled={disabled}
       onClick={() => onPageChange(item)}
       aria-label={`Page ${item}`}
       aria-current={isActive ? "page" : undefined}
       className={cn(
-        "size-8 text-sm font-medium",
+        "size-8 cursor-pointer text-sm font-medium disabled:cursor-not-allowed",
         !isActive && "text-text-secondary",
       )}
     >
@@ -63,7 +79,10 @@ export function JobsPagination({
   from,
   to,
   total,
+  pageSize,
   onPageChange,
+  onPageSizeChange,
+  disabled = false,
   className,
 }: JobsPaginationProps) {
   if (total === 0) return null;
@@ -77,18 +96,47 @@ export function JobsPagination({
         className,
       )}
     >
-      <p className="text-sm text-text-muted">
-        Showing {from} to {to} of {total} results
-      </p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+        <p className="text-sm text-text-muted">
+          Showing {from} to {to} of {total} results
+        </p>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium tracking-wide text-text-secondary uppercase">
+            Rows
+          </span>
+          <Select
+            value={String(pageSize)}
+            disabled={disabled}
+            onValueChange={(value) => {
+              const n = Number.parseInt(value, 10);
+              if (isPageSizeOption(n)) onPageSizeChange(n);
+            }}
+          >
+            <SelectTrigger
+              aria-label="Rows per page"
+              className="h-8 w-[4.5rem] cursor-pointer disabled:cursor-not-allowed"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <SelectItem key={size} value={String(size)}>
+                  {size}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
         <Button
           type="button"
           variant="ghost"
           size="sm"
-          disabled={page <= 1}
+          disabled={disabled || page <= 1}
           onClick={() => onPageChange(page - 1)}
-          className="text-text-muted"
+          className="cursor-pointer text-text-muted disabled:cursor-not-allowed"
         >
           Previous
         </Button>
@@ -99,6 +147,7 @@ export function JobsPagination({
             item={item}
             currentPage={page}
             onPageChange={onPageChange}
+            disabled={disabled}
           />
         ))}
 
@@ -106,9 +155,9 @@ export function JobsPagination({
           type="button"
           variant="ghost"
           size="sm"
-          disabled={page >= totalPages}
+          disabled={disabled || page >= totalPages}
           onClick={() => onPageChange(page + 1)}
-          className="font-medium text-text-primary"
+          className="cursor-pointer font-medium text-text-primary disabled:cursor-not-allowed"
         >
           Next
         </Button>

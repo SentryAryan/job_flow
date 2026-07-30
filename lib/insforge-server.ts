@@ -1,6 +1,16 @@
 import { createClient } from "@insforge/sdk";
 
 /**
+ * Server InsForge client timeout (ms). Default SDK 30s is too short for
+ * ap-southeast auth + DB; align with browser client unless overridden.
+ */
+export const INSFORGE_SERVER_TIMEOUT_MS = Number(
+  process.env.INSFORGE_SERVER_TIMEOUT_MS ??
+    process.env.NEXT_PUBLIC_INSFORGE_TIMEOUT_MS ??
+    60_000,
+);
+
+/**
  * JWT-scoped InsForge client for API routes (no refresh).
  */
 export function createAuthedInsforgeClient(accessToken: string) {
@@ -9,5 +19,10 @@ export function createAuthedInsforgeClient(accessToken: string) {
   if (!baseUrl || !anonKey) {
     throw new Error("InsForge env missing");
   }
-  return createClient({ baseUrl, anonKey, accessToken });
+  return createClient({
+    baseUrl,
+    anonKey,
+    accessToken,
+    timeout: INSFORGE_SERVER_TIMEOUT_MS,
+  });
 }

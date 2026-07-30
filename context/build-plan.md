@@ -163,7 +163,7 @@ Build the complete Find Jobs page UI with mock data. No logic yet.
 **UI:**
 
 - Search controls card at top:
-  - JOB TITLE label + input with search icon placeholder "Frontend Engineer"
+  - JOB TITLE label + input with search icon; placeholder indicates any sector (e.g. "Any role — e.g. Nurse, Teacher, Engineer…")
   - LOCATION label + input placeholder "Remote, New York..."
   - Find Jobs button with search icon
   - Success message area below controls — green banner: "Found 8 jobs and saved 4 strong matches."

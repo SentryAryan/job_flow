@@ -1,4 +1,4 @@
-import type { MockJobRow } from "@/lib/find-jobs-list";
+import type { JobListRow } from "@/lib/find-jobs-list";
 
 function hoursAgo(hours: number): string {
   return new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
@@ -9,11 +9,10 @@ function daysAgo(days: number): string {
 }
 
 /**
- * Mock jobs for Feature 09 Find Jobs UI.
- * First six rows match context/designs/find-jobs.png scores when sorted by match_score.
- * Other jobs stay below 78 so page 1 stays design-accurate. Padded to 24 for pagination.
+ * Legacy mock jobs (Feature 09). Find Jobs now loads from InsForge;
+ * kept for local UI experiments only.
  */
-export const MOCK_JOBS: MockJobRow[] = [
+export const MOCK_JOBS: JobListRow[] = [
   {
     id: "job-1",
     company: "Vercel",

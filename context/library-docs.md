@@ -197,7 +197,6 @@ export async function searchJobs(
     app_id: process.env.ADZUNA_APP_ID!,
     app_key: process.env.ADZUNA_APP_KEY!,
     what: jobTitle,
-    category: "it-jobs", // always filter to IT jobs
     results_per_page: "10",
     "content-type": "application/json",
   });
@@ -269,7 +268,7 @@ const jobRecord = {
 
 **Rules:**
 
-- Always include `category=it-jobs` — never search Adzuna without this filter
+- Do **not** send Adzuna `category` — search by `what` (title) and optional `where` (location) across all sectors
 - Never pass `where` if location is empty — omit the parameter entirely
 - `source` is always `'search'` for Adzuna jobs — never any other value
 - `salary_is_predicted: "1"` means Adzuna estimated the salary — this is normal

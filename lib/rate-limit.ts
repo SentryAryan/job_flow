@@ -222,7 +222,7 @@ function parsePositiveInt(raw: string | undefined, fallback: number): number {
   return n;
 }
 
-/** Env-configurable Resume AI windows (extract + generate shared pool). */
+/** Env-configurable Resume AI windows (extract + generate + find jobs shared pool). */
 export function getResumeAiRateWindows(
   env: NodeJS.ProcessEnv = process.env,
 ): RateLimitWindow[] {

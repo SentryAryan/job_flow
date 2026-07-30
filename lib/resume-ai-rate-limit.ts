@@ -55,11 +55,77 @@ function unavailableSnapshot(): ResumeAiUsageUnavailable {
   };
 }
 
+function requireRedisInProduction(): void {
+  if (!hasRedisUrl() && isProductionAppEnv()) {
+    throw new Error(
+      "REDIS_URL is required when APP_ENV is production/prod for resume AI rate limiting",
+    );
+  }
+}
+
 /**
- * Shared Extract + Generate pool under `resume-ai:{userId}`.
+ * Peek whether the shared pool still has headroom — does **not** record a hit.
+ * Used by Find Jobs to admit a search and to decide whether a scoring batch may use AI.
+ * Production without REDIS_URL fails closed (throws).
+ */
+export async function canUseResumeAiQuota(
+  userId: string,
+  store: RateLimitStore = defaultRedisStore,
+): Promise<
+  | { checked: false }
+  | { checked: true; allowed: boolean; windows: RateLimitWindowUsage[] }
+> {
+  requireRedisInProduction();
+
+  if (!hasRedisUrl()) {
+    return { checked: false };
+  }
+
+  const windows = await getRateLimitUsage(
+    store,
+    resumeAiIdentityKey(userId),
+    getResumeAiRateWindows(),
+  );
+  const allowed = windows.every((w) => w.remaining > 0);
+  return { checked: true, allowed, windows };
+}
+
+/** Build 429-style headers from a peek when admission is denied (no hit recorded). */
+export function rateLimitHeadersFromUsage(
+  windows: RateLimitWindowUsage[],
+): HeadersInit {
+  const blocked = windows.filter((w) => w.remaining <= 0);
+  const strictest =
+    blocked.length > 0
+      ? blocked.reduce((a, b) => (a.resetAt <= b.resetAt ? a : b))
+      : windows[0];
+
+  if (!strictest) {
+    return rateLimitResponseHeaders({
+      allowed: false,
+      limit: 0,
+      remaining: 0,
+      resetAt: Date.now(),
+    });
+  }
+
+  return rateLimitResponseHeaders({
+    allowed: false,
+    limit: strictest.limit,
+    remaining: 0,
+    resetAt: strictest.resetAt,
+    blockedBy: strictest.name,
+  });
+}
+
+/**
+ * Shared Extract + Generate + Find Jobs pool under `resume-ai:{userId}`.
  * When REDIS_URL is set, always records a hit (usage bar works in any env).
  * Returns 429-ready `enforced: true` only in production/prod.
  * Production without REDIS_URL fails closed (throws).
+ *
+ * Extract/Generate: call once per request (before AI).
+ * Find Jobs: call once per **successful AI scoring batch** (not once per click).
  */
 export async function enforceResumeAiRateLimit(
   userId: string,
@@ -68,11 +134,7 @@ export async function enforceResumeAiRateLimit(
   const production = isProductionAppEnv();
 
   if (!hasRedisUrl()) {
-    if (production) {
-      throw new Error(
-        "REDIS_URL is required when APP_ENV is production/prod for resume AI rate limiting",
-      );
-    }
+    requireRedisInProduction();
     return { enforced: false };
   }
 

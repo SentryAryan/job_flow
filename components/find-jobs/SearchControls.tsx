@@ -2,15 +2,20 @@
 
 import { Search, Sparkles } from "lucide-react";
 
+import { SearchProgressBanner } from "@/components/find-jobs/JobsLoading";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 type SearchControlsProps = {
   jobTitle: string;
   location: string;
   showSuccessBanner: boolean;
+  successMessage?: string;
+  searching?: boolean;
+  searchStatusMessage?: string;
   onJobTitleChange: (value: string) => void;
   onLocationChange: (value: string) => void;
   onFindJobs: () => void;
@@ -21,6 +26,9 @@ export function SearchControls({
   jobTitle,
   location,
   showSuccessBanner,
+  successMessage = "Found and saved 8 jobs · 4 strong matches (70%+).",
+  searching = false,
+  searchStatusMessage,
   onJobTitleChange,
   onLocationChange,
   onFindJobs,
@@ -30,6 +38,7 @@ export function SearchControls({
     <section
       className={cn(
         "rounded-xl border border-border bg-surface p-5 shadow-[var(--shadow-card)] sm:p-6",
+        searching && "ring-1 ring-accent/20",
         className,
       )}
     >
@@ -37,6 +46,7 @@ export function SearchControls({
         className="flex flex-col gap-4 lg:flex-row lg:items-end"
         onSubmit={(event) => {
           event.preventDefault();
+          if (searching) return;
           onFindJobs();
         }}
       >
@@ -56,9 +66,10 @@ export function SearchControls({
               id="find-jobs-title"
               value={jobTitle}
               onChange={(event) => onJobTitleChange(event.target.value)}
-              placeholder="Frontend Engineer"
+              placeholder="Any role — e.g. Nurse, Teacher, Engineer…"
               className="pl-9"
               autoComplete="off"
+              disabled={searching}
             />
           </div>
         </div>
@@ -76,22 +87,38 @@ export function SearchControls({
             onChange={(event) => onLocationChange(event.target.value)}
             placeholder="Remote, New York..."
             autoComplete="off"
+            disabled={searching}
           />
         </div>
 
-        <Button type="submit" variant="primary" size="lg" className="shrink-0">
-          <Search data-icon="inline-start" />
-          Find Jobs
+        <Button
+          type="submit"
+          variant="primary"
+          size="lg"
+          className="shrink-0 cursor-pointer disabled:cursor-not-allowed"
+          disabled={searching || !jobTitle.trim()}
+          aria-busy={searching}
+        >
+          {searching ? (
+            <Spinner size="sm" label="Searching" />
+          ) : (
+            <Search data-icon="inline-start" />
+          )}
+          {searching ? "Searching…" : "Find Jobs"}
         </Button>
       </form>
 
-      {showSuccessBanner ? (
+      {searching && searchStatusMessage ? (
+        <SearchProgressBanner message={searchStatusMessage} />
+      ) : null}
+
+      {!searching && showSuccessBanner ? (
         <div
           className="mt-4 flex items-center gap-2 rounded-lg bg-success-lightest px-3.5 py-2.5 text-sm font-medium text-success-darker"
           role="status"
         >
           <Sparkles className="size-4 shrink-0 text-success-darker" aria-hidden />
-          <span>Found 8 jobs and saved 4 strong matches.</span>
+          <span>{successMessage}</span>
         </div>
       ) : null}
     </section>
