@@ -47,7 +47,7 @@ function makeAdzunaJob(id: string): AdzunaJob {
   };
 }
 
-function makeClient() {
+function makeClient(options?: { completeError?: { message: string } }) {
   const logs: unknown[] = [];
   const jobs: unknown[] = [];
   let runStatus = "running";
@@ -80,6 +80,12 @@ function makeClient() {
             update(payload: { status?: string; jobs_found?: number }) {
               return {
                 async eq() {
+                  if (
+                    payload.status === "completed" &&
+                    options?.completeError
+                  ) {
+                    return { data: null, error: options.completeError };
+                  }
                   if (payload.status) runStatus = payload.status;
                   if (payload.jobs_found != null) jobsFound = payload.jobs_found;
                   return { data: null, error: null };
@@ -146,6 +152,62 @@ describe("discoverJobs", () => {
     expect(client.jobs).toHaveLength(1);
     expect(client.runStatus).toBe("completed");
     expect(client.jobsFound).toBe(1);
+  });
+
+  it("formats salary with GB currency when searching London", async () => {
+    const client = makeClient();
+    const adzunaJob = makeAdzunaJob("adz-gb");
+    const searchJobs = vi.fn(async () => [adzunaJob]);
+
+    const result = await discoverJobs({
+      userId: "u1",
+      jobTitle: "Engineer",
+      location: "London",
+      profile,
+      client: client as never,
+      searchJobs,
+      scoreJobs: vi.fn(async () => [
+        {
+          matchScore: 80,
+          matchReason: "ok",
+          matchedSkills: ["React"],
+          missingSkills: [],
+        },
+      ]),
+    });
+
+    expect(result.success).toBe(true);
+    expect(searchJobs).toHaveBeenCalledWith(
+      expect.objectContaining({ country: "gb", location: "London" }),
+    );
+    expect(client.jobs[0]).toMatchObject({ salary: "£100k - £140k" });
+  });
+
+  it("marks the run failed when completion update errors", async () => {
+    const client = makeClient({
+      completeError: { message: "db write failed" },
+    });
+    const adzunaJob = makeAdzunaJob("adz-1");
+
+    const result = await discoverJobs({
+      userId: "u1",
+      jobTitle: "Engineer",
+      location: "",
+      profile,
+      client: client as never,
+      searchJobs: vi.fn(async () => [adzunaJob]),
+      scoreJobs: vi.fn(async () => [
+        {
+          matchScore: 80,
+          matchReason: "ok",
+          matchedSkills: ["React"],
+          missingSkills: [],
+        },
+      ]),
+    });
+
+    expect(result.success).toBe(false);
+    expect(client.runStatus).toBe("failed");
   });
 
   it("rejects empty job title without creating a run", async () => {

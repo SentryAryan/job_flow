@@ -12,6 +12,8 @@ import {
     type JobMatchScore,
 } from "@/agent/match-score";
 import {
+    adzunaCurrencySymbol,
+    detectAdzunaCountry,
     formatAdzunaSalary,
     searchAdzunaJobs,
     type AdzunaJob,
@@ -181,6 +183,7 @@ function buildJobInsertRow(input: {
   runId: string;
   job: AdzunaJob;
   score: JobMatchScore;
+  currencySymbol: string;
 }) {
   return {
     user_id: input.userId,
@@ -191,7 +194,11 @@ function buildJobInsertRow(input: {
     title: input.job.title,
     company: input.job.company.display_name,
     location: input.job.location.display_name,
-    salary: formatAdzunaSalary(input.job.salary_min, input.job.salary_max),
+    salary: formatAdzunaSalary(
+      input.job.salary_min,
+      input.job.salary_max,
+      input.currencySymbol,
+    ),
     job_type: input.job.contract_type || "fulltime",
     about_role: input.job.description,
     responsibilities: [] as string[],
@@ -255,9 +262,13 @@ export async function discoverJobs(
       level: "info",
     });
 
+    const country = detectAdzunaCountry(location);
+    const currencySymbol = adzunaCurrencySymbol(country);
+
     const adzunaJobs = await search({
       jobTitle,
       location,
+      country,
     });
 
     await insertAgentLog(options.client, {
@@ -286,6 +297,7 @@ export async function discoverJobs(
         runId,
         job,
         score: scores[index] ?? fallbackMatchScores([job], options.profile)[0]!,
+        currencySymbol,
       }),
     );
 
@@ -319,6 +331,7 @@ export async function discoverJobs(
 
     if (completeError) {
       console.error("[agent/adzuna] complete run", completeError);
+      throw new Error("Failed to complete job search run");
     }
 
     await insertAgentLog(options.client, {

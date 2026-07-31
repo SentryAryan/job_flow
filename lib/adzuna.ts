@@ -31,12 +31,13 @@ const COUNTRY_PATTERNS: ReadonlyArray<{
   {
     country: "au",
     pattern:
-      /\b(australia|sydney|melbourne|brisbane|perth|adelaide|\bau\b)\b/i,
+      /\b(australia|sydney|melbourne|brisbane|perth|adelaide)\b/i,
   },
   {
+    // No bare "ca" — that matches California state suffixes (e.g. "San Francisco, CA").
     country: "ca",
     pattern:
-      /\b(canada|toronto|vancouver|montreal|ottawa|calgary|\bca\b)\b/i,
+      /\b(canada|toronto|vancouver|montreal|ottawa|calgary|ontario|quebec|alberta|british columbia)\b/i,
   },
   {
     country: "us",
@@ -44,6 +45,24 @@ const COUNTRY_PATTERNS: ReadonlyArray<{
       /\b(usa|u\.s\.a\.|united states|\bus\b|new york|san francisco|seattle|austin|chicago|remote)\b/i,
   },
 ];
+
+/** Currency prefix for Adzuna salary display by country endpoint. */
+export function adzunaCurrencySymbol(country: AdzunaCountry): string {
+  switch (country) {
+    case "gb":
+      return "£";
+    case "au":
+      return "A$";
+    case "ca":
+      return "C$";
+    case "us":
+      return "$";
+    default: {
+      const _exhaustive: never = country;
+      return _exhaustive;
+    }
+  }
+}
 
 /** Infer Adzuna country code from free-text location; default `us`. */
 export function detectAdzunaCountry(location: string): AdzunaCountry {
@@ -57,10 +76,14 @@ export function detectAdzunaCountry(location: string): AdzunaCountry {
   return "us";
 }
 
-/** Format Adzuna salary_min/max into `$XXk - $YYk`, or null when missing. */
+/**
+ * Format Adzuna salary_min/max into `{symbol}XXk - {symbol}YYk`, or null when missing.
+ * Pass `currencySymbol` from `adzunaCurrencySymbol(country)` so non-US markets are correct.
+ */
 export function formatAdzunaSalary(
   salaryMin?: number,
   salaryMax?: number,
+  currencySymbol = "$",
 ): string | null {
   if (
     salaryMin == null ||
@@ -77,10 +100,10 @@ export function formatAdzunaSalary(
     salaryMax > salaryMin
   ) {
     const maxK = Math.round(salaryMax / 1000);
-    return `$${minK}k - $${maxK}k`;
+    return `${currencySymbol}${minK}k - ${currencySymbol}${maxK}k`;
   }
 
-  return `$${minK}k+`;
+  return `${currencySymbol}${minK}k+`;
 }
 
 export type SearchAdzunaJobsParams = {

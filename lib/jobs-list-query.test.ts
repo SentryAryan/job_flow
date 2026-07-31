@@ -16,6 +16,11 @@ describe("escapeIlikePattern", () => {
     expect(escapeIlikePattern("foo,bar")).toBe("foobar");
   });
 
+  it("strips parentheses that break PostgREST or() grouping", () => {
+    expect(escapeIlikePattern("Stripe (UK)")).toBe("Stripe UK");
+    expect(escapeIlikePattern("(Acme)")).toBe("Acme");
+  });
+
   it("trims whitespace", () => {
     expect(escapeIlikePattern("  stripe  ")).toBe("stripe");
   });

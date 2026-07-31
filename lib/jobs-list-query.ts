@@ -8,12 +8,13 @@ import {
 
 /**
  * Escape user search text for PostgREST `ilike` patterns and strip characters
- * that break `.or()` filter lists (commas).
+ * that break `.or()` filter lists (commas, parentheses).
  */
 export function escapeIlikePattern(raw: string): string {
   return raw
     .trim()
     .replace(/,/g, "")
+    .replace(/[()]/g, "")
     .replace(/\\/g, "\\\\")
     .replace(/%/g, "\\%")
     .replace(/_/g, "\\_");
