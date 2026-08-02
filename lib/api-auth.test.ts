@@ -57,6 +57,7 @@ describe("requireAuth", () => {
       baseUrl: "https://example.insforge.app",
       anonKey: "anon-key",
       accessToken: "jwt-token",
+      timeout: expect.any(Number),
     });
     expect(result.success).toBe(true);
     if (result.success) {
@@ -80,6 +81,25 @@ describe("requireAuth", () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.status).toBe(401);
+    }
+  });
+
+  it("returns 503 when getCurrentUser times out", async () => {
+    mockGetCurrentUser.mockResolvedValue({
+      data: { user: null },
+      error: { message: "InsForgeError: Request timed out after 30000ms" },
+    });
+
+    const result = await requireAuth(
+      new Request("http://localhost/api", {
+        headers: { Authorization: "Bearer tok" },
+      }),
+    );
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(503);
+      expect(result.error).toMatch(/timed out/i);
     }
   });
 });

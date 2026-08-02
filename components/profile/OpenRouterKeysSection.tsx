@@ -76,7 +76,7 @@ export function OpenRouterKeysSection({
       }
       setKeys(result.data.keys);
       setInput("");
-      toast.success("Key saved — Extract and Generate will use your OpenRouter account");
+      toast.success("Key saved — AI features will use your OpenRouter account");
       onKeysChanged?.();
     } catch {
       toast.error("Could not save your key. Please try again.");
@@ -125,10 +125,11 @@ export function OpenRouterKeysSection({
           >
             openrouter.ai
           </a>{" "}
-          to use your own AI credits for Extract and Generate — with no JobPilot
-          usage limits. We check the key when you add it, store it encrypted, and
-          only show the last 4 characters. If something goes wrong, remove your
-          keys here to switch back to JobPilot’s keys (with usage limits).
+          to use your own AI credits for Extract, Generate, and Find Jobs — with
+          no JobPilot usage limits. We check the key when you add it, store it
+          encrypted, and only show the last 4 characters. If something goes
+          wrong, remove your keys here to switch back to JobPilot’s keys (with
+          usage limits).
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -145,8 +146,9 @@ export function OpenRouterKeysSection({
             className="rounded-md border border-border bg-surface-muted px-3 py-2 text-sm text-text-secondary"
             role="status"
           >
-            You’re using your own keys. Extract and Generate won’t count toward
-            JobPilot limits. Remove all keys below to use JobPilot’s keys again.
+            You’re using your own keys. Extract, Generate, and Find Jobs won’t
+            count toward JobPilot limits. Remove all keys below to use JobPilot’s
+            keys again.
           </p>
         ) : null}
 

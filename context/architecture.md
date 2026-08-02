@@ -355,7 +355,6 @@ const response = await fetch(
     `app_key=${process.env.ADZUNA_APP_KEY}&` +
     `what=${encodeURIComponent(jobTitle)}&` +
     `where=${encodeURIComponent(location)}&` +
-    `category=it-jobs&` +
     `results_per_page=10&` +
     `content-type=application/json`,
 );
@@ -421,5 +420,5 @@ Rules the AI agent must never violate:
 - Company research always returns a dossier — even if browser research fails, GPT-4o synthesizes from company name and job description alone. Never return empty.
 - Browserbase sessions are always closed with stagehand.close() when done — never leave sessions open.
 - Always scope InsForge queries to the current user_id — never query without a user filter.
-- Adzuna API always includes category=it-jobs — never search without this filter.
+- Adzuna search omits `category` — match by title (`what`) and optional location (`where`) across any sector; scoring prompts are sector-agnostic.
 - jobs.source is always 'search' or 'url' — never any other value.

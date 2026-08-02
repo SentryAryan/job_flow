@@ -5,7 +5,7 @@ import Link from "next/link";
 import { MatchScoreBar } from "@/components/find-jobs/MatchScoreBar";
 import {
     formatRelativeFoundAt,
-    type MockJobRow,
+    type JobListRow,
 } from "@/lib/find-jobs-list";
 import { cn } from "@/lib/utils";
 
@@ -18,17 +18,20 @@ const COLUMNS = [
 ] as const;
 
 type JobsTableProps = {
-  jobs: readonly MockJobRow[];
+  jobs: readonly JobListRow[];
+  emptyMessage?: string;
   className?: string;
 };
 
-export function JobsTable({ jobs, className }: JobsTableProps) {
+export function JobsTable({
+  jobs,
+  emptyMessage = "No jobs match your filters. Try adjusting search or match level.",
+  className,
+}: JobsTableProps) {
   if (jobs.length === 0) {
     return (
       <div className={cn("px-6 py-16 text-center", className)}>
-        <p className="text-sm text-text-muted">
-          No jobs match your filters. Try adjusting search or match level.
-        </p>
+        <p className="text-sm text-text-muted">{emptyMessage}</p>
       </div>
     );
   }

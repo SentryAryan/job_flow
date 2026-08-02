@@ -90,4 +90,38 @@ describe("NavbarCta", () => {
       expect(mockReplace).toHaveBeenCalledWith("/");
     });
   });
+
+  it("renders OAuth avatar with no-referrer so Google photos can load", () => {
+    mockUseUser.mockReturnValue({
+      user: {
+        id: "u1",
+        email: "aria@example.com",
+        profile: {
+          name: "Aria Chen",
+          avatar_url: "https://lh3.googleusercontent.com/a/photo=s96-c",
+        },
+      },
+      isLoaded: true,
+      signOut: mockSignOut,
+    });
+
+    const { container } = render(<NavbarCta />);
+    const img = container.querySelector('[data-slot="avatar-image"]');
+    expect(img).not.toBeNull();
+    expect(img).toHaveAttribute(
+      "src",
+      "https://lh3.googleusercontent.com/a/photo=s96-c",
+    );
+    expect(img).toHaveAttribute("referrerpolicy", "no-referrer");
+  });
+
+  it("resolveAuthAvatarUrl reads avatar_url", async () => {
+    const { resolveAuthAvatarUrl } = await import("@/components/layout/NavbarCta");
+    expect(
+      resolveAuthAvatarUrl({
+        avatar_url: " https://example.com/a.png ",
+      }),
+    ).toBe("https://example.com/a.png");
+    expect(resolveAuthAvatarUrl({ name: "Only Name" })).toBeUndefined();
+  });
 });

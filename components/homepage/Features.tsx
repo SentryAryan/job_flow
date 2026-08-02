@@ -4,7 +4,7 @@ const FEATURES = [
   {
     title: "Find Jobs That Actually Fit",
     description:
-      "Search by title and location for tech roles. GPT-4o scores every result against your profile so you see the best matches first.",
+      "Search by title and location across any sector. AI scores every result against your profile so you see the best matches first.",
     accent: "border-l-accent",
   },
   {
