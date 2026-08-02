@@ -2,8 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { MemorySlidingWindowStore } from "@/lib/rate-limit";
 import {
+    canUseResumeAiQuota,
     enforceResumeAiRateLimit,
     peekResumeAiUsage,
+    rateLimitHeadersFromUsage,
 } from "@/lib/resume-ai-rate-limit";
 
 describe("enforceResumeAiRateLimit", () => {
@@ -91,6 +93,72 @@ describe("enforceResumeAiRateLimit", () => {
       enforced: true,
       result: { allowed: false, blockedBy: "1m" },
     });
+  });
+});
+
+describe("canUseResumeAiQuota", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("returns checked false without Redis in development", async () => {
+    vi.stubEnv("APP_ENV", "development");
+    vi.stubEnv("REDIS_URL", "");
+    await expect(canUseResumeAiQuota("user-1")).resolves.toEqual({
+      checked: false,
+    });
+  });
+
+  it("requires REDIS_URL in production", async () => {
+    vi.stubEnv("APP_ENV", "production");
+    vi.stubEnv("REDIS_URL", "");
+    await expect(canUseResumeAiQuota("user-1")).rejects.toThrow(/REDIS_URL/);
+  });
+
+  it("reports allowed false when a window is exhausted", async () => {
+    vi.stubEnv("APP_ENV", "production");
+    vi.stubEnv("REDIS_URL", "redis://localhost:6379");
+    vi.stubEnv("RESUME_AI_RATE_LIMIT_PER_MINUTE", "1");
+    vi.stubEnv("RESUME_AI_RATE_LIMIT_PER_HOUR", "15");
+    vi.stubEnv("RESUME_AI_RATE_LIMIT_PER_DAY", "40");
+
+    const store = new MemorySlidingWindowStore();
+    await enforceResumeAiRateLimit("user-1", store);
+
+    const quota = await canUseResumeAiQuota("user-1", store);
+    expect(quota).toMatchObject({ checked: true, allowed: false });
+  });
+
+  it("does not record a hit when peeking", async () => {
+    vi.stubEnv("APP_ENV", "production");
+    vi.stubEnv("REDIS_URL", "redis://localhost:6379");
+    const store = new MemorySlidingWindowStore();
+
+    await canUseResumeAiQuota("user-1", store);
+    await canUseResumeAiQuota("user-1", store);
+
+    const usage = await peekResumeAiUsage("user-1", store);
+    expect(usage.available).toBe(true);
+    expect(usage.windows.find((w) => w.name === "1m")?.used).toBe(0);
+  });
+});
+
+describe("rateLimitHeadersFromUsage", () => {
+  it("exposes Retry-After style headers for an exhausted window", () => {
+    const headers = rateLimitHeadersFromUsage([
+      {
+        name: "1m",
+        limit: 3,
+        used: 3,
+        remaining: 0,
+        resetAt: Date.now() + 60_000,
+      },
+    ]);
+    expect(headers).toMatchObject({
+      "X-RateLimit-Limit": "3",
+      "X-RateLimit-Remaining": "0",
+    });
+    expect(headers).toHaveProperty("Retry-After");
   });
 });
 

@@ -167,7 +167,7 @@ Full width layout on all pages. No sidebar.
 - Profile form with all standard resume fields
 - Resume PDF upload with optional profile auto-fill via GPT-4o
 - Resume PDF generation from profile data using GPT-4o
-- Adzuna API job discovery — searches by title and location, category filtered to IT jobs
+- Adzuna API job discovery — searches by title and location across any sector (no `category` filter)
 - GPT-4o job matching with score, reason, matched skills, missing skills
 - Job details page with full structured description
 - Company Research Agent — single Browserbase session browses company public pages, GPT-4o builds dossier

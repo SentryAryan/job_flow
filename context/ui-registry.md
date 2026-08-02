@@ -164,14 +164,24 @@ Client component (built to `context/designs/login-page.png`). Renders `<Navbar /
 
 ### Find Jobs page — `app/find-jobs/page.tsx`
 
-Client page wrapped in `AuthGuard` with `FindJobsPageSkeleton` fallback (Navbar stays visible while auth hydrates). Composes `Navbar` + search + filters + jobs table (mock data only — Feature 09).
+Client page wrapped in `AuthGuard` with `FindJobsPageSkeleton` fallback (Navbar stays visible while auth hydrates). Composes `Navbar` + search + filters + jobs table backed by InsForge `jobs` (Features 10–11).
 
 - Shell: `min-h-screen bg-background`
 - Main: `mx-auto flex max-w-6xl flex-col gap-5 px-6 py-8 sm:px-8`
 - Components under `components/find-jobs/`: `SearchControls`, `JobFilters`, `JobsTable`, `JobsPagination`, `MatchScoreBar`
-- Helpers: `lib/mock-jobs.ts` (24 rows), `lib/find-jobs-list.ts` (filter / sort / paginate / relative dates / score color)
+- Find Jobs button → `POST /api/agent/find` (`lib/find-jobs-api.ts` + `authedFetch`); Adzuna discovery by title/location across **any sector** (no `category`); job title placeholder indicates any role; list load via `GET /api/jobs` (`lib/jobs.ts` `fetchJobsPage`) with `page` / `pageSize` (10|20|50) / `q` (company|title) / `match` / `sort` — DB-backed filter/sort/`range` + exact count (`lib/jobs-list-query.ts`), not in-memory 500-row fetch
+- Loading UX: table skeleton matching `JobsTable` columns while loading/searching/refreshing; rotating status banner under the form (`Searching Adzuna…` → `Scoring…` → `Saving discovered jobs…`)
+- Pagination **Rows** select (10 / 20 / 50) wired through `JobsPagination` → API
+- Helpers: `lib/jobs-list-query.ts` (PostgREST plan / ilike escape / paginate meta); `lib/find-jobs-list.ts` (pure filter / sort / paginate / `parsePageSizeParam` / relative dates / score color); default `FIND_JOBS_PAGE_SIZE = 20`
+- Also: `JobsLoading` (`JobsTableSkeleton`, `SearchProgressBanner`)
+- Success banner: `Found and saved N jobs · M strong matches (70%+).` (all scored listings are saved; strong = score ≥70)
 - Match score fill: ≥90 `bg-success`, ≥80 `bg-info`, else `bg-warning` (design override of homepage preview thresholds)
-- Pagination: 6 per page; footer inside results card
+- Pagination: Rows select 10 / 20 / 50 (default 20); footer inside results card when `total > 0`
+- PostHog: `job_search_started`, per-job `job_found` with `matchScore`
+
+### Navbar AI panels — `components/layout/NavbarAiPanels.tsx`
+
+Avatar dropdown embeds compact **AI usage** (shared Extract / Generate / Find Jobs pool) and **OpenRouter keys** add/list (same APIs as profile). Wider menu (`w-80`). Keys change refreshes usage panel.
 
 ### UI primitives — `components/ui/`
 
@@ -204,11 +214,11 @@ Alert card when `missing.length > 0`. Red warning icon, title, body, uppercase m
 
 ### ResumeAiUsageCard — `components/profile/ResumeAiUsageCard.tsx`
 
-Profile-only card above Resume: three Progress rows (minute / hour / day) showing **used / limit** for the **shared** Extract + Generate pool. Copy states limits are combined. Refresh icon + 60s poll (pauses when tab hidden). Hides when `available: false` (no Redis, development/`dev`, or user has BYOK keys). Ref `refresh()` after extract/generate settles or BYOK keys change.
+Profile card above Resume: three Progress rows (minute / hour / day) showing **used / limit** for the **shared** Extract + Generate + Find Jobs pool. Copy states limits are combined. Refresh icon + 60s poll (pauses when tab hidden). Hides when `available: false` (no Redis, development/`dev`, or user has BYOK keys). Ref `refresh()` after AI actions settle or BYOK keys change. Compact twin lives in the Navbar avatar menu.
 
 ### OpenRouterKeysSection — `components/profile/OpenRouterKeysSection.tsx`
 
-Profile Card for optional personal OpenRouter keys: paste one key → Add (server verifies with OpenRouter before save). Lists masked `••••last4` with Remove. User-facing copy explains using your own credits (no JobPilot limits) vs removing keys to return to JobPilot keys + limits. Status banner while keys are active. Max 5 keys; ciphertext never returned to the client. Calls `onKeysChanged` so the usage card can refresh/hide.
+Profile Card for optional personal OpenRouter keys: paste one key → Add (server verifies with OpenRouter before save). Lists masked `••••last4` with Remove. User-facing copy explains using your own credits (no JobPilot limits) for Extract, Generate, and Find Jobs vs removing keys to return to JobPilot keys + limits. Status banner while keys are active. Max 5 keys; ciphertext never returned to the client. Calls `onKeysChanged` so the usage card can refresh/hide. Compact twin in Navbar avatar menu.
 
 ### ResumeUpload — `components/profile/ResumeUpload.tsx`
 

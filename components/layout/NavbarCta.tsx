@@ -6,7 +6,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { useUser } from "@/components/auth/AuthProvider";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+    NavbarAiUsagePanel,
+    NavbarOpenRouterKeysPanel,
+} from "@/components/layout/NavbarAiPanels";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -37,6 +41,20 @@ function initialsFromName(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
+/** Read OAuth/auth profile image URL (InsForge stores `avatar_url` on profile). */
+export function resolveAuthAvatarUrl(
+  profile: Record<string, unknown> | null | undefined,
+): string | undefined {
+  if (!profile) return undefined;
+  const candidates = [profile.avatar_url, profile.avatarUrl, profile.picture];
+  for (const value of candidates) {
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
+    if (trimmed.length > 0) return trimmed;
+  }
+  return undefined;
+}
+
 /**
  * Navbar right CTA: “Get Started” → `/login` when signed out;
  * avatar menu (hover open, click to pin) when signed in.
@@ -46,6 +64,7 @@ export function NavbarCta() {
   const { user, isLoaded, signOut } = useUser();
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
+  const [usageRefreshToken, setUsageRefreshToken] = useState(0);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ignoreCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -66,12 +85,22 @@ export function NavbarCta() {
     }
   };
 
+  const [avatarFailed, setAvatarFailed] = useState(false);
+
+  const avatarUrl = resolveAuthAvatarUrl(
+    user?.profile as Record<string, unknown> | null | undefined,
+  );
+
   useEffect(() => {
     return () => {
       clearCloseTimer();
       clearIgnoreCloseTimer();
     };
   }, []);
+
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [avatarUrl]);
 
   const openOnHover = (): void => {
     clearCloseTimer();
@@ -119,10 +148,6 @@ export function NavbarCta() {
     user.email,
     typeof user.profile?.name === "string" ? user.profile.name : undefined,
   );
-  const avatarUrl =
-    typeof user.profile?.avatar_url === "string"
-      ? user.profile.avatar_url
-      : undefined;
 
   return (
     <DropdownMenu
@@ -170,18 +195,27 @@ export function NavbarCta() {
           }}
         >
           <Avatar size="default">
-            {avatarUrl ? (
-              <AvatarImage src={avatarUrl} alt="" />
-            ) : null}
-            <AvatarFallback className="bg-accent-light text-xs font-medium text-accent">
-              {initialsFromName(name)}
-            </AvatarFallback>
+            {avatarUrl && !avatarFailed ? (
+              // eslint-disable-next-line @next/next/no-img-element -- OAuth CDN needs referrerPolicy; next/image not required here
+              <img
+                data-slot="avatar-image"
+                src={avatarUrl}
+                alt=""
+                referrerPolicy="no-referrer"
+                className="aspect-square size-full rounded-full object-cover"
+                onError={() => setAvatarFailed(true)}
+              />
+            ) : (
+              <AvatarFallback className="bg-accent-light text-xs font-medium text-accent">
+                {initialsFromName(name)}
+              </AvatarFallback>
+            )}
           </Avatar>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="min-w-56 w-56"
+        className="max-h-[min(36rem,85vh)] w-80 min-w-72 overflow-y-auto"
         onMouseEnter={openOnHover}
         onMouseLeave={scheduleClose}
         onCloseAutoFocus={(event) => event.preventDefault()}
@@ -203,6 +237,12 @@ export function NavbarCta() {
             Profile
           </Link>
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <NavbarAiUsagePanel refreshToken={usageRefreshToken} />
+        <DropdownMenuSeparator />
+        <NavbarOpenRouterKeysPanel
+          onKeysChanged={() => setUsageRefreshToken((n) => n + 1)}
+        />
         <DropdownMenuSeparator />
         <DropdownMenuItem
           variant="destructive"
