@@ -14,6 +14,7 @@ import { createAuthedInsforgeClient } from "@/lib/insforge-server";
 import { mapRowToProfile } from "@/lib/profile";
 import {
     canUseResumeAiQuota,
+    enforceResumeAiIpRateLimit,
     enforceResumeAiRateLimit,
     rateLimitHeadersFromUsage,
     rateLimitResponseHeaders,
@@ -41,6 +42,27 @@ export async function POST(request: Request) {
   const auth = await requireAuth(request);
   if (!auth.success) {
     return jsonError(auth.status, auth.error);
+  }
+
+  let rateLimitHeaders: HeadersInit | undefined;
+  try {
+    const ipRate = await enforceResumeAiIpRateLimit(request);
+    if (ipRate.enforced) {
+      rateLimitHeaders = rateLimitResponseHeaders(ipRate.result);
+      if (!ipRate.result.allowed) {
+        return jsonError(
+          429,
+          "Too many requests from this network. Please try again later.",
+          rateLimitHeaders,
+        );
+      }
+    }
+  } catch (error) {
+    console.error("agent find IP rate limit unavailable", error);
+    return jsonError(
+      503,
+      "Job search is temporarily unavailable. Please try again later.",
+    );
   }
 
   let body: unknown;
@@ -102,7 +124,6 @@ export async function POST(request: Request) {
   }
 
   const useByok = byokKeys.length > 0;
-  let rateLimitHeaders: HeadersInit | undefined;
   /** Once AI quota is exhausted mid-search, remaining batches use skill-overlap only. */
   let aiQuotaExhausted = false;
 

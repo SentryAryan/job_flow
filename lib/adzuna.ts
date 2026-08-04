@@ -1,3 +1,5 @@
+import dns from "node:dns";
+
 export type AdzunaCountry = "us" | "gb" | "au" | "ca";
 
 export type AdzunaJob = {
@@ -18,6 +20,15 @@ export type AdzunaJob = {
 type AdzunaSearchResponse = {
   results?: AdzunaJob[];
 };
+
+/** Prefer A records so broken Adzuna IPv6 (ENETUNREACH) does not fail Happy Eyeballs. */
+export function preferIpv4DnsOrder(): void {
+  if (typeof dns.setDefaultResultOrder === "function") {
+    dns.setDefaultResultOrder("ipv4first");
+  }
+}
+
+preferIpv4DnsOrder();
 
 const COUNTRY_PATTERNS: ReadonlyArray<{
   country: AdzunaCountry;
@@ -116,6 +127,63 @@ export type SearchAdzunaJobsParams = {
   fetchImpl?: typeof fetch;
 };
 
+function isTransientNetworkError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  if (error.name === "AbortError") return false;
+
+  const message = error.message.toLowerCase();
+  if (
+    message.includes("fetch failed") ||
+    message.includes("etimedout") ||
+    message.includes("econnreset") ||
+    message.includes("econnrefused") ||
+    message.includes("enetunreach") ||
+    message.includes("network")
+  ) {
+    return true;
+  }
+
+  const cause = (error as Error & { cause?: unknown }).cause;
+  if (cause && typeof cause === "object" && cause !== null) {
+    const code =
+      "code" in cause && typeof (cause as { code: unknown }).code === "string"
+        ? (cause as { code: string }).code
+        : "";
+    if (
+      code === "ETIMEDOUT" ||
+      code === "ENETUNREACH" ||
+      code === "ECONNRESET" ||
+      code === "ECONNREFUSED" ||
+      code === "EAI_AGAIN"
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function networkErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.name === "AbortError") {
+    return "Adzuna API error: timeout";
+  }
+  return "Adzuna API error: network unreachable (check IPv6 / firewall; retrying prefers IPv4)";
+}
+
+async function fetchAdzunaOnce(
+  url: string,
+  fetchImpl: typeof fetch,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetchImpl(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 /**
  * Search Adzuna jobs by title (`what`) and optional location (`where`).
  * No sector `category` filter — results can span any Adzuna category.
@@ -124,6 +192,8 @@ export type SearchAdzunaJobsParams = {
 export async function searchAdzunaJobs(
   params: SearchAdzunaJobsParams,
 ): Promise<AdzunaJob[]> {
+  preferIpv4DnsOrder();
+
   const jobTitle = params.jobTitle.trim();
   if (!jobTitle) {
     throw new Error("Job title is required");
@@ -154,20 +224,33 @@ export async function searchAdzunaJobs(
   }
 
   const url = `https://api.adzuna.com/v1/api/jobs/${country}/search/1?${query}`;
-  const controller = new AbortController();
   const timeoutMs = 15_000;
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  let response: Response;
-  try {
-    response = await fetchImpl(url, { signal: controller.signal });
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Adzuna API error: timeout");
+  let response: Response | undefined;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      response = await fetchAdzunaOnce(url, fetchImpl, timeoutMs);
+      lastError = undefined;
+      break;
+    } catch (error) {
+      lastError = error;
+      if (
+        error instanceof Error &&
+        error.name === "AbortError"
+      ) {
+        throw new Error("Adzuna API error: timeout");
+      }
+      if (!isTransientNetworkError(error) || attempt === 1) {
+        throw new Error(networkErrorMessage(error), { cause: error });
+      }
+      preferIpv4DnsOrder();
     }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
+  }
+
+  if (!response) {
+    throw new Error(networkErrorMessage(lastError), { cause: lastError });
   }
 
   if (!response.ok) {

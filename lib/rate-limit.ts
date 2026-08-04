@@ -215,6 +215,12 @@ const DEFAULT_LIMITS = {
   day: 40,
 } as const;
 
+const DEFAULT_IP_LIMITS = {
+  minute: 10,
+  hour: 45,
+  day: 120,
+} as const;
+
 function parsePositiveInt(raw: string | undefined, fallback: number): number {
   if (raw == null || raw.trim() === "") return fallback;
   const n = Number.parseInt(raw.trim(), 10);
@@ -254,12 +260,53 @@ export function getResumeAiRateWindows(
   ];
 }
 
+/**
+ * Looser per-IP windows (~3× user) for multi-account abuse backstop.
+ * Shared across Extract + Generate + Find Jobs (1 hit per request).
+ */
+export function getResumeAiIpRateWindows(
+  env: NodeJS.ProcessEnv = process.env,
+): RateLimitWindow[] {
+  return [
+    {
+      name: "1m",
+      windowMs: 60_000,
+      limit: parsePositiveInt(
+        env.RESUME_AI_IP_RATE_LIMIT_PER_MINUTE,
+        DEFAULT_IP_LIMITS.minute,
+      ),
+    },
+    {
+      name: "1h",
+      windowMs: 60 * 60_000,
+      limit: parsePositiveInt(
+        env.RESUME_AI_IP_RATE_LIMIT_PER_HOUR,
+        DEFAULT_IP_LIMITS.hour,
+      ),
+    },
+    {
+      name: "1d",
+      windowMs: 24 * 60 * 60_000,
+      limit: parsePositiveInt(
+        env.RESUME_AI_IP_RATE_LIMIT_PER_DAY,
+        DEFAULT_IP_LIMITS.day,
+      ),
+    },
+  ];
+}
+
 /** @deprecated Use getResumeAiRateWindows() — kept for transitional imports. */
 export const RESUME_EXTRACT_RATE_WINDOWS: RateLimitWindow[] =
   getResumeAiRateWindows();
 
 export const RESUME_AI_IDENTITY_PREFIX = "resume-ai";
+export const RESUME_AI_IP_IDENTITY_PREFIX = "resume-ai-ip";
 
 export function resumeAiIdentityKey(userId: string): string {
   return `${RESUME_AI_IDENTITY_PREFIX}:${userId}`;
+}
+
+/** `ipHash` from hashIpForRateLimit — never pass a raw IP. */
+export function resumeAiIpIdentityKey(ipHash: string): string {
+  return `${RESUME_AI_IP_IDENTITY_PREFIX}:${ipHash}`;
 }

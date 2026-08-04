@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 
 import { MatchScoreBar } from "@/components/find-jobs/MatchScoreBar";
@@ -15,6 +16,7 @@ const COLUMNS = [
   "Match Score",
   "Salary Est.",
   "Date Found",
+  "Details",
 ] as const;
 
 type JobsTableProps = {
@@ -38,16 +40,23 @@ export function JobsTable({
 
   return (
     <div className={cn("overflow-x-auto", className)}>
-      <table className="w-full min-w-[40rem] border-collapse text-left">
+      <table className="w-full min-w-[44rem] border-collapse text-left">
         <thead>
           <tr className="border-b border-border">
             {COLUMNS.map((column) => (
               <th
                 key={column}
                 scope="col"
-                className="px-4 py-3 text-[11px] font-medium tracking-wide text-text-secondary uppercase sm:px-5"
+                className={cn(
+                  "px-4 py-3 text-[11px] font-medium tracking-wide text-text-secondary uppercase sm:px-5",
+                  column === "Details" && "text-right",
+                )}
               >
-                {column}
+                {column === "Details" ? (
+                  <span className="sr-only">Details</span>
+                ) : (
+                  column
+                )}
               </th>
             ))}
           </tr>
@@ -88,6 +97,15 @@ export function JobsTable({
               </td>
               <td className="px-4 py-3.5 text-sm text-text-muted sm:px-5">
                 {formatRelativeFoundAt(job.found_at)}
+              </td>
+              <td className="px-4 py-3.5 text-right sm:px-5">
+                <Link
+                  href={`/find-jobs/${job.id}`}
+                  aria-label={`View details for ${job.title} at ${job.company}`}
+                  className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md border border-border bg-surface text-text-secondary transition-colors hover:border-accent hover:bg-accent-light hover:text-accent"
+                >
+                  <ChevronRight className="size-4" aria-hidden />
+                </Link>
               </td>
             </tr>
           ))}

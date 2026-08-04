@@ -74,10 +74,17 @@ function Button({
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     >
-      {pending ? <Spinner decorative className="size-4" /> : null}
-      {children}
+      {asChild ? (
+        children
+      ) : (
+        <>
+          {pending ? <Spinner decorative className="size-4" /> : null}
+          {children}
+        </>
+      )}
     </Comp>
   );
 }
 
 export { Button, buttonVariants };
+

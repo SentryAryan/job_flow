@@ -15,7 +15,7 @@ type SearchControlsProps = {
   showSuccessBanner: boolean;
   successMessage?: string;
   searching?: boolean;
-  searchStatusMessage?: string;
+  searchStatusIndex?: number;
   onJobTitleChange: (value: string) => void;
   onLocationChange: (value: string) => void;
   onFindJobs: () => void;
@@ -28,7 +28,7 @@ export function SearchControls({
   showSuccessBanner,
   successMessage = "Found and saved 8 jobs · 4 strong matches (70%+).",
   searching = false,
-  searchStatusMessage,
+  searchStatusIndex = 0,
   onJobTitleChange,
   onLocationChange,
   onFindJobs,
@@ -108,8 +108,8 @@ export function SearchControls({
         </Button>
       </form>
 
-      {searching && searchStatusMessage ? (
-        <SearchProgressBanner message={searchStatusMessage} />
+      {searching ? (
+        <SearchProgressBanner currentIndex={searchStatusIndex} />
       ) : null}
 
       {!searching && showSuccessBanner ? (

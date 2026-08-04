@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { captureEvent, resetAnalytics } from "@/lib/analytics";
+import { RESUME_AI_USAGE_REFRESH_EVENT } from "@/lib/jobs";
 import { cn } from "@/lib/utils";
 
 const CLOSE_DELAY_MS = 180;
@@ -95,6 +96,16 @@ export function NavbarCta() {
     return () => {
       clearCloseTimer();
       clearIgnoreCloseTimer();
+    };
+  }, []);
+
+  useEffect(() => {
+    const onUsageRefresh = () => {
+      setUsageRefreshToken((value) => value + 1);
+    };
+    window.addEventListener(RESUME_AI_USAGE_REFRESH_EVENT, onUsageRefresh);
+    return () => {
+      window.removeEventListener(RESUME_AI_USAGE_REFRESH_EVENT, onUsageRefresh);
     };
   }, []);
 

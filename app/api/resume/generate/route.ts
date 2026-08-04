@@ -15,6 +15,8 @@ import { errorMessage, isNotFoundError } from "@/lib/errors";
 import { createAuthedInsforgeClient } from "@/lib/insforge-server";
 import { mapRowToProfile } from "@/lib/profile";
 import {
+    admitResumeAiUserQuota,
+    enforceResumeAiIpRateLimit,
     enforceResumeAiRateLimit,
     rateLimitResponseHeaders,
 } from "@/lib/resume-ai-rate-limit";
@@ -69,6 +71,27 @@ export async function POST(request: Request) {
     return jsonError(auth.status, auth.error);
   }
 
+  let rateLimitHeaders: HeadersInit | undefined;
+  try {
+    const ipRate = await enforceResumeAiIpRateLimit(request);
+    if (ipRate.enforced) {
+      rateLimitHeaders = rateLimitResponseHeaders(ipRate.result);
+      if (!ipRate.result.allowed) {
+        return jsonError(
+          429,
+          "Too many requests from this network. Please try again later.",
+          rateLimitHeaders,
+        );
+      }
+    }
+  } catch (error) {
+    console.error("resume generate IP rate limit unavailable", error);
+    return jsonError(
+      503,
+      "Resume generation is temporarily unavailable. Please try again later.",
+    );
+  }
+
   let client: ReturnType<typeof createClient>;
   try {
     client = createAuthedInsforgeClient(auth.accessToken);
@@ -99,20 +122,16 @@ export async function POST(request: Request) {
   }
 
   const useByok = byokKeys.length > 0;
-  let rateLimitHeaders: HeadersInit | undefined;
 
   if (!useByok) {
     try {
-      const rate = await enforceResumeAiRateLimit(auth.user.id);
-      if (rate.enforced) {
-        rateLimitHeaders = rateLimitResponseHeaders(rate.result);
-        if (!rate.result.allowed) {
-          return jsonError(
-            429,
-            "Too many resume generations. Please try again later.",
-            rateLimitHeaders,
-          );
-        }
+      const admission = await admitResumeAiUserQuota(auth.user.id);
+      if (!admission.admitted) {
+        return jsonError(
+          429,
+          "Too many resume generations. Please try again later.",
+          admission.headers,
+        );
       }
     } catch (error) {
       console.error("resume generate rate limit unavailable", error);
@@ -250,6 +269,17 @@ export async function POST(request: Request) {
     typeof (updated as { resume_pdf_url?: unknown }).resume_pdf_url === "string"
       ? (updated as { resume_pdf_url: string }).resume_pdf_url
       : uploadData.url;
+
+  if (!useByok) {
+    try {
+      const rate = await enforceResumeAiRateLimit(auth.user.id);
+      if (rate.enforced) {
+        rateLimitHeaders = rateLimitResponseHeaders(rate.result);
+      }
+    } catch (error) {
+      console.error("resume generate rate limit record failed", error);
+    }
+  }
 
   return NextResponse.json(
     {

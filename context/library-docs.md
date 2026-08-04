@@ -291,20 +291,24 @@ const bb = new Browserbase({ apiKey: process.env.BROWSERBASE_API_KEY! });
 // Single session for company research — sequential page visits
 const session = await bb.sessions.create({
   projectId: process.env.BROWSERBASE_PROJECT_ID!,
-  timeout: 120, // 2 minute session — visits 3-4 pages max
+  // Default 600s (10 min); override via BROWSERBASE_SESSION_TIMEOUT_SEC
+  timeout: Number(process.env.BROWSERBASE_SESSION_TIMEOUT_SEC ?? 600),
 });
 ```
 
-**Important — Browserbase runs independently from your Next.js server:**
-Browserbase sessions run on Browserbase's cloud infrastructure, not inside your Next.js API route. The API route triggers the Browserbase session and returns a response while the session continues running independently on Browserbase's platform. Do not add `maxDuration` or any timeout configuration to Next.js API routes to accommodate Browserbase session length.
+**Important — Feature 13 awaits the full browse + synthesis in the API route** then returns the dossier. Always `await stagehand.close()` in `finally`. Do not fire-and-forget the Browserbase session.
+
+**Env:** `BROWSERBASE_API_KEY`, `BROWSERBASE_PROJECT_ID` (server-only). Optional: `BROWSERBASE_SESSION_TIMEOUT_SEC` (default 600), `RESEARCH_OVERALL_TIMEOUT_MS` (720000), `RESEARCH_GOTO_TIMEOUT_MS` (60000), `RESEARCH_EXTRACT_TIMEOUT_MS` (180000), `NEXT_PUBLIC_RESEARCH_CLIENT_TIMEOUT_MS` (750000).
 
 **Rules:**
 
 - Always use single sessions — never parallel sessions (free plan limit)
-- Session timeout is 120 seconds — sufficient for 3-4 page visits
-- Always end sessions cleanly — call stagehand.close() when done
+- Session timeout defaults to **600 seconds** — long enough for slow OpenRouter free extracts across 3–4 pages
+- After each `page.goto`, detect Chrome error pages and hard bot walls (`ERR_SSL_*`, Access Denied, `chrome-error://`) via `agent/research-nav.ts` and **skip extract**. Dedicated auth titles (`Sign In / Register`) and denylist paths also skip; do **not** treat ambient “Sign in” in page body as unusable
+- Bound hung `goto` / `extract` / overall research with `withTimeout` (`lib/research-timeouts.ts`); overall timeout still returns a degraded dossier
+- Always end sessions cleanly — call `stagehand.close()` when done
 - Project ID always from `process.env.BROWSERBASE_PROJECT_ID` — never hardcode
-- Browserbase client lives in `lib/browserbase.ts` — always import from there
+- Browserbase client lives in `lib/browserbase.ts` — always import from there (`createResearchBrowserSession`)
 
 ---
 
@@ -316,43 +320,32 @@ Browserbase sessions run on Browserbase's cloud infrastructure, not inside your 
 
 ```typescript
 import { Stagehand } from "@browserbasehq/stagehand";
+import { createResearchStagehand } from "@/lib/stagehand";
 
-const stagehand = new Stagehand({
-  env: "BROWSERBASE",
-  apiKey: process.env.BROWSERBASE_API_KEY!,
-  projectId: process.env.BROWSERBASE_PROJECT_ID!,
-  browserbaseSessionID: session.id,
-  model: { modelName: "openai/gpt-4o", apiKey: process.env.OPENAI_API_KEY! },
-  disablePino: true,
+// Prefer lib/stagehand.ts — OpenRouter via CustomOpenAIClient (not AI SDK provider parse)
+const stagehand = await createResearchStagehand({
+  sessionId: session.id,
+  openRouterApiKey: key,
 });
-
-await stagehand.init();
-const page = stagehand.context.activePage()!;
+// Uses AI_MODEL (default openrouter/free) + OpenAI SDK baseURL https://openrouter.ai/api/v1
+// Do NOT pass modelName "openrouter/…" through Stagehand's model: config — unsupported provider.
+// Homepage schema pageLinks.url MUST be z.url() (Zod 4) so Stagehand ID→href injection runs.
 ```
 
-### extract()
+### extract() (Stagehand v3)
 
 ```typescript
-import { z } from "zod";
-
-const result = await stagehand.extract({
-  instruction:
-    "Extract the company overview, main product description, and any technology mentions from this page.",
-  schema: z.object({
-    companyOverview: z.string().optional(),
-    mainProduct: z.string().optional(),
-    techMentions: z.array(z.string()).optional(),
-    navLinks: z
-      .array(
-        z.object({
-          label: z.string(),
-          url: z.string(),
-        }),
-      )
-      .optional(),
+const result = await stagehand.extract(
+  "Extract the company overview…",
+  z.object({
+    oneLiner: z.string(),
+    productSummary: z.string(),
+    // …
   }),
-});
+);
 ```
+
+Navigate with `stagehand.context.activePage()!.goto(url)`.
 
 ### act()
 
@@ -507,11 +500,17 @@ const response = await openai.chat.completions.create({
 - Always wrap every `act()` and `extract()` in try/catch
 - Always call `await stagehand.close()` when done — ends the Browserbase session
 - Model is always `gpt-4o` — never use other models
-- Temperature is `0.4` for synthesis — grounded but flexible enough to make real connections
+- Temperature is `0.3` for research synthesis (project AI rule) — grounded, specific to the candidate
 - Max 3 sub-pages — never exceed this on free plan
 - Always close session in finally block — never leave sessions open even if research fails
 - Job description and profile always come from DB — never re-fetch via browser
-- If browser research returns empty — still run synthesis with job + profile only
+- If browser research returns empty — still run synthesis with job + profile only (`agent/research.ts`)
+- Synthesis uses AI SDK `generateObject` + OpenRouter (`lib/ai/provider.ts`), not raw `openai`
+- Stagehand LLM via OpenRouter `CustomOpenAIClient` (`lib/stagehand.ts`) — bypasses unsupported AI SDK `openrouter` provider; each `createChatCompletion` increments `ResearchLlmMeter` via `onLlmCall`
+- Homepage `pageLinks.url` must be `z.url()` (Zod 4; Stagehand ID→href inject); normalize + `/about|/careers|/who-we-are` fallbacks in `agent/research-links.ts`
+- Stagehand OpenRouter client wraps `chat.completions.create` to heal null `message.content` from `reasoning` / `reasoning_details` before Stagehand validates
+- Mid-research quota: peek Redis remaining − unflushed `ResearchLlmMeter`; skip extracts when effective &lt; 3, skip synthesis AI when &lt; 1; flush via `enforceResumeAiRateLimitHitsCapped`
+- Synthesis heals alternate free-model JSON shapes (`healCompanyResearchFromText`); richer job/profile fallback + `degraded` flag when heal fails
 - yourEdge, gapsToAddress, and smartQuestions are the most valuable fields — never skip them
 
 ## Vercel AI SDK + OpenRouter
@@ -550,9 +549,12 @@ const { object } = await withOpenRouterKeyFailover((model) =>
 - `RESUME_AI_RATE_LIMIT_PER_MINUTE` — default `3`
 - `RESUME_AI_RATE_LIMIT_PER_HOUR` — default `15`
 - `RESUME_AI_RATE_LIMIT_PER_DAY` — default `40`
+- `RESUME_AI_IP_RATE_LIMIT_PER_MINUTE` — default `10` (per-IP abuse backstop)
+- `RESUME_AI_IP_RATE_LIMIT_PER_HOUR` — default `45`
+- `RESUME_AI_IP_RATE_LIMIT_PER_DAY` — default `120`
 - `BYOK_ENCRYPTION_SECRET` — server-only AES-256-GCM secret for encrypting user OpenRouter keys (`profiles.openrouter_keys_enc`). Required when BYOK is used; missing secret → `503` on encrypt/decrypt (fail closed).
 
-**Shared Resume AI rate limits (Extract + Generate):**
+**Shared Resume AI rate limits (Extract + Generate + Find Jobs + Company Research):**
 
 - One pool per authenticated user: Redis key `resume-ai:{userId}` (`lib/resume-ai-rate-limit.ts`)
 - **Deploy note:** this namespace replaced the older `resume-extract:{userId}` keys — counters reset once on deploy; old Redis keys expire via their sliding windows
@@ -561,13 +563,35 @@ const { object } = await withOpenRouterKeyFailover((model) =>
 - Missing `REDIS_URL` in production → `503` (fail closed)
 - Usage peek: `GET /api/resume/usage` (auth, no hit) + profile `ResumeAiUsageCard` (60s poll + refresh)
 - Usage card hidden (`available: false`) in development/`dev` **or** when the user has ≥1 BYOK key
+- **Extract / Generate:** admit with `admitResumeAiUserQuota` (peek only); record **one hit only after a successful response** — 429 / failed AI does not increment usage
+- **Company Research:** fixed **5** Redis hits per admitted request (requires `remaining >= 5`); OpenRouter hard-capped at 5 via `ResearchLlmMeter` (`RESEARCH_MAX_OPENROUTER_CALLS`); flush via `enforceResumeAiRateLimitHitsCapped`; storefront domains map to corporate about URLs (redirect + name fallback); skip Access Denied / auth-wall titles / account-cart URLs before extract (not ambient nav “Sign in”)
+
+**Per-IP Resume AI rate limits (abuse backstop):**
+
+- Second Redis pool keyed by hashed client IP: `resume-ai-ip:{sha256(ip)[0:32]}` (`enforceResumeAiIpRateLimit`, `lib/client-ip.ts`)
+- Applied on Extract / Generate / Find Jobs / Company Research **after auth, before** the per-user pool — **1 hit per request**
+- Always applies when `REDIS_URL` is set, **including BYOK users**
+- Windows from `getResumeAiIpRateWindows()`; defaults 10 / min, 45 / hour, 120 / day
+- Same production 429 rules as the user pool
+- Not shown in the Navbar/profile usage card
+
+**Company Research agent:**
+
+- `POST /api/agent/research` `{ jobId }` — `agent/research.ts` + Browserbase/Stagehand + OpenRouter synthesis (`maxDuration` 800)
+- After `goto`, skip LLM extract on unusable pages (Chrome SSL, Access Denied / bot walls, **auth-wall titles** like `Sign In / Register`, denylisted `/login|/account|/cart|…` via `agent/research-nav.ts`). Ambient “Sign in” in retailer nav chrome does **not** skip extract
+- Prefer About/Careers/Team/Engineering/Blog; **max 1** sub-page; hard-cap OpenRouter at 5; fixed Redis charge of 5 when admitted
+- Sub-page: retry once on extract timeout; skip when remaining overall budget is tight; skip rich homepage + tight retry budget (`lib/research-browse-policy.ts`)
+- Logging: Pino (`lib/logger.ts`) — short events only (pages extracted / used in dossier); Stagehand `verbose: 0` + quiet logger (no DOM dumps)
+- Long `withTimeout` budgets in `lib/research-timeouts.ts`; overall timeout → degraded dossier
+- Homepage derivation: `lib/company-homepage.ts` (20s fetch abort); known storefronts (Amazon → aboutamazon, etc.) override on redirect **and** company-name fallback
+- Dossier saved to `jobs.company_research`; client fires PostHog `company_researched`; client AbortSignal ~750s
 
 **OpenRouter BYOK (profile):**
 
 - UI: `OpenRouterKeysSection` on `/profile` → `GET/POST/DELETE /api/profile/openrouter-keys`
 - On Add: format check + live OpenRouter `GET /api/v1/key` probe (`lib/openrouter-key-validate.ts`) before encrypt/save
 - Ciphertext only in DB (`openrouter_keys_enc`); client sees masked `last4` + `id` (max 5 keys)
-- When BYOK present: Extract/Generate use **only** user keys via `withOpenRouterKeyFailover({ keys })` (no platform fallback); **skip** shared Redis rate limits
+- When BYOK present: Extract/Generate/Find/Research use **only** user keys via `withOpenRouterKeyFailover({ keys })` (no platform fallback); **skip** shared per-user Redis rate limits (IP pool still applies)
 - Invalid/exhausted BYOK keys → clear user error (`BYOK_KEYS_FAILED_USER_MESSAGE`); never fall back to platform keys
 - Undecryptable stored rows (corrupt ciphertext or post-rotation leftovers) are skipped per key so users can still add/remove keys; missing `BYOK_ENCRYPTION_SECRET` still fails closed
 - Helpers: `lib/byok-keys.ts`; migration `insforge/migrations/003_byok_openrouter_keys.sql`

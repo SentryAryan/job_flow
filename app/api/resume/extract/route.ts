@@ -10,6 +10,8 @@ import {
 import { createAuthedInsforgeClient } from "@/lib/insforge-server";
 import { extractPdfContent, isPdfMagicBytes } from "@/lib/pdf-text";
 import {
+    admitResumeAiUserQuota,
+    enforceResumeAiIpRateLimit,
     enforceResumeAiRateLimit,
     rateLimitResponseHeaders,
 } from "@/lib/resume-ai-rate-limit";
@@ -66,6 +68,27 @@ export async function POST(request: Request) {
     return jsonError(auth.status, auth.error);
   }
 
+  let rateLimitHeaders: HeadersInit | undefined;
+  try {
+    const ipRate = await enforceResumeAiIpRateLimit(request);
+    if (ipRate.enforced) {
+      rateLimitHeaders = rateLimitResponseHeaders(ipRate.result);
+      if (!ipRate.result.allowed) {
+        return jsonError(
+          429,
+          "Too many requests from this network. Please try again later.",
+          rateLimitHeaders,
+        );
+      }
+    }
+  } catch (error) {
+    console.error("resume extract IP rate limit unavailable", error);
+    return jsonError(
+      503,
+      "Resume extraction is temporarily unavailable. Please try again later.",
+    );
+  }
+
   let byokKeys: string[] = [];
   try {
     const client = createAuthedInsforgeClient(auth.accessToken);
@@ -89,20 +112,16 @@ export async function POST(request: Request) {
   }
 
   const useByok = byokKeys.length > 0;
-  let rateLimitHeaders: HeadersInit | undefined;
 
   if (!useByok) {
     try {
-      const rate = await enforceResumeAiRateLimit(auth.user.id);
-      if (rate.enforced) {
-        rateLimitHeaders = rateLimitResponseHeaders(rate.result);
-        if (!rate.result.allowed) {
-          return jsonError(
-            429,
-            "Too many resume extractions. Please try again later.",
-            rateLimitHeaders,
-          );
-        }
+      const admission = await admitResumeAiUserQuota(auth.user.id);
+      if (!admission.admitted) {
+        return jsonError(
+          429,
+          "Too many resume extractions. Please try again later.",
+          admission.headers,
+        );
       }
     } catch (error) {
       console.error("resume extract rate limit unavailable", error);
@@ -154,6 +173,19 @@ export async function POST(request: Request) {
 
   const resumeText = text.slice(0, 16000);
 
+  async function recordSuccessUsage(): Promise<HeadersInit | undefined> {
+    if (useByok) return rateLimitHeaders;
+    try {
+      const rate = await enforceResumeAiRateLimit(auth.user.id);
+      if (rate.enforced) {
+        return rateLimitResponseHeaders(rate.result);
+      }
+    } catch (error) {
+      console.error("resume extract rate limit record failed", error);
+    }
+    return rateLimitHeaders;
+  }
+
   try {
     const { object } = await withOpenRouterKeyFailover(
       (model) =>
@@ -185,10 +217,8 @@ ${resumeText}`,
         "Could not extract profile from this resume. Please try again.",
       );
     }
-    return NextResponse.json(
-      { success: true, data },
-      { headers: rateLimitHeaders },
-    );
+    const headers = await recordSuccessUsage();
+    return NextResponse.json({ success: true, data }, { headers });
   } catch (error) {
     if (useByok && isOpenRouterKeyUnusableError(error)) {
       return jsonError(502, BYOK_KEYS_FAILED_USER_MESSAGE);
@@ -199,9 +229,10 @@ ${resumeText}`,
       console.warn(
         "resume extract: healed partial model output after schema mismatch",
       );
+      const headers = await recordSuccessUsage();
       return NextResponse.json(
         { success: true, data: healed },
-        { headers: rateLimitHeaders },
+        { headers },
       );
     }
 
@@ -209,13 +240,14 @@ ${resumeText}`,
     const fallbackOnly = finalizeExtract({}, resumeText);
     if (hasHeuristicExtractFields(fallbackOnly)) {
       console.warn("resume extract: returning heuristic-only fallback");
+      const headers = await recordSuccessUsage();
       return NextResponse.json(
         {
           success: true,
           data: fallbackOnly,
           partial: true,
         },
-        { headers: rateLimitHeaders },
+        { headers },
       );
     }
 

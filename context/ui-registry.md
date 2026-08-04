@@ -170,18 +170,32 @@ Client page wrapped in `AuthGuard` with `FindJobsPageSkeleton` fallback (Navbar 
 - Main: `mx-auto flex max-w-6xl flex-col gap-5 px-6 py-8 sm:px-8`
 - Components under `components/find-jobs/`: `SearchControls`, `JobFilters`, `JobsTable`, `JobsPagination`, `MatchScoreBar`
 - Find Jobs button → `POST /api/agent/find` (`lib/find-jobs-api.ts` + `authedFetch`); Adzuna discovery by title/location across **any sector** (no `category`); job title placeholder indicates any role; list load via `GET /api/jobs` (`lib/jobs.ts` `fetchJobsPage`) with `page` / `pageSize` (10|20|50) / `q` (company|title) / `match` / `sort` — DB-backed filter/sort/`range` + exact count (`lib/jobs-list-query.ts`), not in-memory 500-row fetch
-- Loading UX: table skeleton matching `JobsTable` columns while loading/searching/refreshing; rotating status banner under the form (`Searching Adzuna…` → `Scoring…` → `Saving discovered jobs…`)
+- Columns: COMPANY, ROLE, MATCH SCORE, SALARY EST., DATE FOUND, details chevron (opens `/find-jobs/[id]`)
+- Loading UX: table skeleton matching `JobsTable` columns while loading/searching/refreshing; rotating status banner under the form (`Searching Adzuna…` → `Scoring…` → `Saving discovered jobs…`); Howler completion sound on successful Find Jobs
 - Pagination **Rows** select (10 / 20 / 50) wired through `JobsPagination` → API
 - Helpers: `lib/jobs-list-query.ts` (PostgREST plan / ilike escape / paginate meta); `lib/find-jobs-list.ts` (pure filter / sort / paginate / `parsePageSizeParam` / relative dates / score color); default `FIND_JOBS_PAGE_SIZE = 20`
-- Also: `JobsLoading` (`JobsTableSkeleton`, `SearchProgressBanner`)
+- Also: `JobsLoading` (`JobsTableSkeleton`, `SearchProgressBanner` → shared `MultiStepProgress`)
 - Success banner: `Found and saved N jobs · M strong matches (70%+).` (all scored listings are saved; strong = score ≥70)
 - Match score fill: ≥90 `bg-success`, ≥80 `bg-info`, else `bg-warning` (design override of homepage preview thresholds)
 - Pagination: Rows select 10 / 20 / 50 (default 20); footer inside results card when `total > 0`
 - PostHog: `job_search_started`, per-job `job_found` with `matchScore`
 
+### Job Details page — `app/find-jobs/[id]/page.tsx`
+
+Client page wrapped in `AuthGuard` with `JobDetailsSkeleton` fallback. Loads one job via `GET /api/jobs/[id]` (`lib/jobs.ts` `fetchJobById`). Design: `context/designs/job-details.png`.
+
+- Shell: `min-h-screen bg-background` + shared `Navbar` (Find Jobs stays active)
+- Main: `mx-auto flex max-w-6xl flex-col gap-5 px-6 py-8 sm:px-8`
+- Components under `components/job-details/`: `BackToJobs`, `JobHeader`, `JobMetaCards`, `AiMatchReasoning`, `SkillsComparison`, `JobDescription`, `CompanyResearchCard`, `ApplyNowButton`, `JobDetailsSkeleton`, `JobDetailsNotFound`
+- Match pill: ≥70 `bg-success-lightest text-success-dark`; gap skill chips use `bg-accent-light text-accent` (PNG, not red)
+- Job description: HTML stripped to text; Show more / less when &gt;400 chars
+- Company Research: empty state + **Research Company** → `POST /api/agent/research`; while pending: `MultiStepProgress` checklist (completed / current / upcoming: homepage → browse → synthesize → save) + section-card skeleton; dossier = grid of iconed cards (Overview, Tech, Culture, Why, Edge, Gaps, Questions, Prep, Sources); Sonner success / limited-web / degraded info; re-research overwrites
+- View Job Post / Apply Now → `external_apply_url` then `source_url`, `target="_blank"` `rel="noopener noreferrer"`
+- Helpers: `lib/job-detail.ts` (`mapDbRowToJob`, `formatJobType`, `stripHtmlToText`, `getApplyUrl`, display fallbacks)
+
 ### Navbar AI panels — `components/layout/NavbarAiPanels.tsx`
 
-Avatar dropdown embeds compact **AI usage** (shared Extract / Generate / Find Jobs pool) and **OpenRouter keys** add/list (same APIs as profile). Wider menu (`w-80`). Keys change refreshes usage panel.
+Avatar dropdown embeds compact **AI usage** (shared Extract / Generate / Find Jobs / Company Research pool) and **OpenRouter keys** add/list (same APIs as profile). Wider menu (`w-80`). Keys change refreshes usage panel. Research / Extract / Generate dispatch `jobpilot:resume-ai-usage-refresh` for an immediate usage refetch.
 
 ### UI primitives — `components/ui/`
 
@@ -214,7 +228,7 @@ Alert card when `missing.length > 0`. Red warning icon, title, body, uppercase m
 
 ### ResumeAiUsageCard — `components/profile/ResumeAiUsageCard.tsx`
 
-Profile card above Resume: three Progress rows (minute / hour / day) showing **used / limit** for the **shared** Extract + Generate + Find Jobs pool. Copy states limits are combined. Refresh icon + 60s poll (pauses when tab hidden). Hides when `available: false` (no Redis, development/`dev`, or user has BYOK keys). Ref `refresh()` after AI actions settle or BYOK keys change. Compact twin lives in the Navbar avatar menu.
+Profile card above Resume: three Progress rows (minute / hour / day) showing **used / limit** for the **shared** Extract + Generate + Find Jobs + Company Research pool. Copy states limits are combined. Refresh icon + 60s poll (pauses when tab hidden). Hides when `available: false` (no Redis, development/`dev`, or user has BYOK keys). Ref `refresh()` after AI actions settle or BYOK keys change. Compact twin lives in the Navbar avatar menu.
 
 ### OpenRouterKeysSection — `components/profile/OpenRouterKeysSection.tsx`
 
