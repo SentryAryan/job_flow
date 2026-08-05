@@ -15,6 +15,7 @@ import { JobsPagination } from "@/components/find-jobs/JobsPagination";
 import { JobsTable } from "@/components/find-jobs/JobsTable";
 import { SearchControls } from "@/components/find-jobs/SearchControls";
 import Navbar from "@/components/layout/Navbar";
+import { Reveal } from "@/components/motion/Reveal";
 import { captureEvent } from "@/lib/analytics";
 import { playCompletionSound } from "@/lib/completion-sound";
 import { findJobs } from "@/lib/find-jobs-api";
@@ -26,6 +27,7 @@ import {
     type SortOption,
 } from "@/lib/find-jobs-list";
 import { fetchJobsPage, type FetchJobsPageParams } from "@/lib/jobs";
+import { REVEAL_STAGGER_MS, revealDelay } from "@/lib/motion-tokens";
 import { cn } from "@/lib/utils";
 
 const FILTER_DEBOUNCE_MS = 300;
@@ -223,23 +225,28 @@ function FindJobsPageContent() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main className="mx-auto flex max-w-6xl flex-col gap-5 px-6 py-8 sm:px-8">
-        <SearchControls
-          jobTitle={jobTitle}
-          location={location}
-          showSuccessBanner={showSuccessBanner}
-          successMessage={successMessage}
-          searching={searching}
-          searchStatusIndex={searchStatusIndex}
-          onJobTitleChange={setJobTitle}
-          onLocationChange={setLocation}
-          onFindJobs={() => {
-            void handleFindJobs();
-          }}
-        />
+        <Reveal step={0}>
+          <SearchControls
+            jobTitle={jobTitle}
+            location={location}
+            showSuccessBanner={showSuccessBanner}
+            successMessage={successMessage}
+            searching={searching}
+            searchStatusIndex={searchStatusIndex}
+            onJobTitleChange={setJobTitle}
+            onLocationChange={setLocation}
+            onFindJobs={() => {
+              void handleFindJobs();
+            }}
+          />
+        </Reveal>
 
-        <div
+        <Reveal
+          step={1}
           className={cn(
-            busy && "pointer-events-none opacity-60 transition-opacity",
+            /* Transition always present so restoring fades back rather than snapping. */
+            "transition-opacity duration-200 ease-out-strong",
+            busy && "pointer-events-none opacity-60",
           )}
         >
           <JobFilters
@@ -256,9 +263,13 @@ function FindJobsPageContent() {
               setPage(1);
             }}
           />
-        </div>
+        </Reveal>
 
-        <section className="relative overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-card)]">
+        {/* Stable across filter / pagination changes, so this reveals once per visit. */}
+        <section
+          className="jp-reveal relative overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-card)]"
+          style={revealDelay(REVEAL_STAGGER_MS * 2)}
+        >
           {jobsLoading || searching || listRefreshing ? (
             <JobsTableSkeleton rows={Math.min(pageSize, 8)} />
           ) : (

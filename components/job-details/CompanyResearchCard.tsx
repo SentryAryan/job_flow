@@ -111,9 +111,21 @@ function TagList({ items }: { items: string[] }) {
   );
 }
 
-function CompanyResearchDossier({ research }: { research: CompanyResearch }) {
+function CompanyResearchDossier({
+  research,
+  reveal,
+}: {
+  research: CompanyResearch;
+  /** Only true when the dossier just arrived from a run in this session. */
+  reveal: boolean;
+}) {
   return (
-    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+    <div
+      className={cn(
+        "mt-4 grid gap-3 sm:grid-cols-2",
+        reveal && "jp-reveal",
+      )}
+    >
       <DossierCard
         title="Company Overview"
         icon={Building2}
@@ -214,6 +226,8 @@ export function CompanyResearchCard({
   const [localResearch, setLocalResearch] = useState<CompanyResearch | null>(
     research,
   );
+  /* Research already on the job rides the page cascade; only a fresh run reveals. */
+  const [justResearched, setJustResearched] = useState(false);
 
   useEffect(() => {
     setLocalResearch(research);
@@ -246,6 +260,7 @@ export function CompanyResearchCard({
       }
 
       setStepIndex(RESEARCH_STATUS_MESSAGES.length - 1);
+      setJustResearched(true);
       setLocalResearch(result.data.research);
       onResearched?.(result.data.research);
       captureEvent("company_researched", {
@@ -307,7 +322,7 @@ export function CompanyResearchCard({
           <CompanyResearchSkeleton />
         </>
       ) : displayed ? (
-        <CompanyResearchDossier research={displayed} />
+        <CompanyResearchDossier research={displayed} reveal={justResearched} />
       ) : (
         <div className="mt-8 flex flex-col items-center px-4 pb-4 text-center">
           <div

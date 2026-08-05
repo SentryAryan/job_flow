@@ -22,12 +22,16 @@ export function MatchScoreBar({ score, className }: MatchScoreBarProps) {
         aria-valuemax={100}
         aria-label={`Match score ${clamped} percent`}
       >
+        {/*
+          scaleX rather than width: a full page of rows re-scoring at once would
+          otherwise trigger layout on every frame. Transform stays on the GPU.
+        */}
         <div
           className={cn(
-            "h-full rounded-full transition-[width]",
+            "h-full w-full origin-left rounded-full transition-transform duration-500 ease-out-strong",
             getMatchScoreBarClass(clamped),
           )}
-          style={{ width: `${clamped}%` }}
+          style={{ transform: `scaleX(${clamped / 100})` }}
         />
       </div>
     </div>

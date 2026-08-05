@@ -112,9 +112,10 @@ export function SearchControls({
         <SearchProgressBanner currentIndex={searchStatusIndex} />
       ) : null}
 
+      {/* Lands after a long agent run — reveal so the result doesn't just pop in. */}
       {!searching && showSuccessBanner ? (
         <div
-          className="mt-4 flex items-center gap-2 rounded-lg bg-success-lightest px-3.5 py-2.5 text-sm font-medium text-success-darker"
+          className="jp-reveal mt-4 flex items-center gap-2 rounded-lg bg-success-lightest px-3.5 py-2.5 text-sm font-medium text-success-darker"
           role="status"
         >
           <Sparkles className="size-4 shrink-0 text-success-darker" aria-hidden />

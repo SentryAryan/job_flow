@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 /** Shared motion timing for profile / app UI. Prefer opacity over translate for a11y. */
 export const motionTokens = {
   duration: {
@@ -17,3 +19,14 @@ export const fadeIn = {
   initial: { opacity: 0 },
   animate: { opacity: 1 },
 } as const;
+
+/**
+ * Stagger step for `.jp-reveal` cascades. Keep steps at 30–40ms and total delay
+ * under ~300ms — longer and the page reads as slow rather than choreographed.
+ */
+export const REVEAL_STAGGER_MS = 40;
+
+/** Delay for a `.jp-reveal` element (see the components layer in globals.css). */
+export function revealDelay(ms: number): CSSProperties {
+  return { "--jp-reveal-delay": `${ms}ms` } as CSSProperties;
+}

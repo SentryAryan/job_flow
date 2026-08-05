@@ -16,6 +16,7 @@ import { JobHeader } from "@/components/job-details/JobHeader";
 import { JobMetaCards } from "@/components/job-details/JobMetaCards";
 import { SkillsComparison } from "@/components/job-details/SkillsComparison";
 import Navbar from "@/components/layout/Navbar";
+import { Reveal } from "@/components/motion/Reveal";
 import { Button } from "@/components/ui/button";
 import { getApplyUrl } from "@/lib/job-detail";
 import { fetchJobById } from "@/lib/jobs";
@@ -86,44 +87,67 @@ function JobDetailsContent({ jobId }: { jobId: string }) {
 
   const applyUrl = getApplyUrl(job);
 
+  /*
+    Sections reveal top-to-bottom as the fetch resolves. Eight steps at
+    REVEAL_STAGGER_MS keeps the last one under ~300ms, so the page still reads
+    as one arrival rather than a slow drip.
+  */
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-5 px-6 py-8 sm:px-8">
-      <BackToJobs />
-      <JobHeader
-        title={job.title}
-        company={job.company}
-        matchScore={job.match_score}
-        viewUrl={applyUrl}
-      />
-      <JobMetaCards
-        salary={job.salary}
-        location={job.location}
-        jobType={job.job_type}
-        foundAt={job.found_at}
-      />
-      <AiMatchReasoning matchReason={job.match_reason} />
-      <SkillsComparison
-        matchedSkills={job.matched_skills}
-        missingSkills={job.missing_skills}
-      />
-      <JobDescription
-        aboutRole={job.about_role}
-        responsibilities={job.responsibilities}
-        requirements={job.requirements}
-        niceToHave={job.nice_to_have}
-        benefits={job.benefits}
-        aboutCompany={job.about_company}
-        viewUrl={applyUrl}
-      />
-      <CompanyResearchCard
-        jobId={job.id}
-        company={job.company}
-        research={job.company_research}
-        onResearched={(research) => {
-          setJob((prev) => (prev ? { ...prev, company_research: research } : prev));
-        }}
-      />
-      <ApplyNowButton company={job.company} applyUrl={applyUrl} />
+      <Reveal step={0}>
+        <BackToJobs />
+      </Reveal>
+      <Reveal step={1}>
+        <JobHeader
+          title={job.title}
+          company={job.company}
+          matchScore={job.match_score}
+          viewUrl={applyUrl}
+        />
+      </Reveal>
+      <Reveal step={2}>
+        <JobMetaCards
+          salary={job.salary}
+          location={job.location}
+          jobType={job.job_type}
+          foundAt={job.found_at}
+        />
+      </Reveal>
+      <Reveal step={3}>
+        <AiMatchReasoning matchReason={job.match_reason} />
+      </Reveal>
+      <Reveal step={4}>
+        <SkillsComparison
+          matchedSkills={job.matched_skills}
+          missingSkills={job.missing_skills}
+        />
+      </Reveal>
+      <Reveal step={5}>
+        <JobDescription
+          aboutRole={job.about_role}
+          responsibilities={job.responsibilities}
+          requirements={job.requirements}
+          niceToHave={job.nice_to_have}
+          benefits={job.benefits}
+          aboutCompany={job.about_company}
+          viewUrl={applyUrl}
+        />
+      </Reveal>
+      <Reveal step={6}>
+        <CompanyResearchCard
+          jobId={job.id}
+          company={job.company}
+          research={job.company_research}
+          onResearched={(research) => {
+            setJob((prev) =>
+              prev ? { ...prev, company_research: research } : prev,
+            );
+          }}
+        />
+      </Reveal>
+      <Reveal step={7}>
+        <ApplyNowButton company={job.company} applyUrl={applyUrl} />
+      </Reveal>
     </main>
   );
 }

@@ -176,9 +176,10 @@ Client page wrapped in `AuthGuard` with `FindJobsPageSkeleton` fallback (Navbar 
 - Helpers: `lib/jobs-list-query.ts` (PostgREST plan / ilike escape / paginate meta); `lib/find-jobs-list.ts` (pure filter / sort / paginate / `parsePageSizeParam` / relative dates / score color); default `FIND_JOBS_PAGE_SIZE = 20`
 - Also: `JobsLoading` (`JobsTableSkeleton`, `SearchProgressBanner` → shared `MultiStepProgress`)
 - Success banner: `Found and saved N jobs · M strong matches (70%+).` (all scored listings are saved; strong = score ≥70)
-- Match score fill: ≥90 `bg-success`, ≥80 `bg-info`, else `bg-warning` (design override of homepage preview thresholds)
+- Match score fill: ≥90 `bg-success`, ≥80 `bg-info`, else `bg-warning` (design override of homepage preview thresholds); the fill is `scaleX` on `origin-left`, not `width`, so a full page re-scoring does not trigger layout per frame
 - Pagination: Rows select 10 / 20 / 50 (default 20); footer inside results card when `total > 0`
 - PostHog: `job_search_started`, per-job `job_found` with `matchScore`
+- Motion: search card → filters → results card reveal once per visit (`Reveal` steps 0–2). The results `<section>` carries the reveal, **not** the table, so filter / sort / pagination changes never replay it. Busy dim keeps `transition-opacity duration-200 ease-out-strong` mounted at all times and toggles only `opacity-60` — with the transition class itself conditional, restoring snapped. Search success banner is `.jp-reveal` (it lands after a long agent run)
 
 ### Job Details page — `app/find-jobs/[id]/page.tsx`
 
@@ -192,6 +193,7 @@ Client page wrapped in `AuthGuard` with `JobDetailsSkeleton` fallback. Loads one
 - Company Research: empty state + **Research Company** → `POST /api/agent/research`; while pending: `MultiStepProgress` checklist (completed / current / upcoming: homepage → browse → synthesize → save) + section-card skeleton; dossier = grid of iconed cards (Overview, Tech, Culture, Why, Edge, Gaps, Questions, Prep, Sources); Sonner success / limited-web / degraded info; re-research overwrites
 - View Job Post / Apply Now → `external_apply_url` then `source_url`, `target="_blank"` `rel="noopener noreferrer"`
 - Helpers: `lib/job-detail.ts` (`mapDbRowToJob`, `formatJobType`, `stripHtmlToText`, `getApplyUrl`, display fallbacks)
+- Motion: all eight sections reveal top-to-bottom via `Reveal` steps 0–7 (last lands ~280ms, so it reads as one arrival). The dossier reveals **only** when research completes in this session (`justResearched`) — research already on the job rides the page cascade instead of double-animating
 
 ### Navbar AI panels — `components/layout/NavbarAiPanels.tsx`
 
@@ -210,8 +212,57 @@ Avatar dropdown embeds compact **AI usage** (shared Extract / Generate / Find Jo
 - **Checkbox** — shadcn Checkbox for boolean fields (e.g. “Currently working here”)
 - **Label** — Radix Label; profile default `mb-1.5 block text-xs font-semibold uppercase tracking-wide text-text-secondary`
 - **Card** — compose with `CardContent` (and Header/Title/Footer as needed); `border-border` + `shadow-[var(--shadow-card)]`
+- **Chart** — shadcn Chart (`components/ui/chart.tsx`) over Recharts v3; use `ChartContainer` + `ChartTooltip` / `ChartTooltipContent`; series colors via `--chart-1`…`--chart-5` (JobPilot accent/info/success)
 - **Badge** — shadcn Badge available
 - **Tag** — project chip (`border-accent bg-accent-light`) for skills/industry; not from shadcn
+
+### Dashboard page — `app/dashboard/page.tsx`
+
+Client page wrapped in `AuthGuard` with `DashboardPageSkeleton` fallback. Mock stats/activity/charts (Feature 14); incomplete profile banner via `fetchProfile` + `CompletionBanner`. Composes `Navbar` + `StatsBar` + mid row (activity | research chart) + bottom row (jobs area | match bars).
+
+- Shell: `min-h-screen bg-background`
+- Main: `mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8 sm:px-8`
+
+Entrance cascade via `revealDelayMs` props (stats 0 → activity 100 → research 140 → jobs 180 → match 220). The async completion banner is wrapped in `.jp-reveal` so it fades in instead of popping when the profile fetch resolves.
+
+### Entrance reveal — `.jp-reveal` (`app/globals.css` + `lib/motion-tokens.ts`)
+
+Shared CSS entrance for page sections: fade + 8px rise, 280ms, `--jp-ease-out` (`cubic-bezier(0.22, 1, 0.36, 1)`). CSS rather than `motion/react` so the cascade does not drop frames while charts and fetches occupy the main thread — use `MotionSection` only where JS-driven control is actually needed.
+
+- Stagger by setting `--jp-reveal-delay` via `revealDelay(ms)`; keep steps at `REVEAL_STAGGER_MS` (40ms) and total delay under ~300ms
+- `prefers-reduced-motion: reduce` swaps to `jp-reveal-fade` (opacity only, 160ms) and forces delay to 0 — no travel, no cascade
+- Easing utilities `ease-out-strong` / `ease-in-out-strong` are available for transitions elsewhere
+- Only wrap elements that mount **once per visit**. Replaying a reveal on every filter, sort, or pagination change makes routine interactions feel slow — put the reveal on the stable container, not on the list that re-renders
+
+### Reveal — `components/motion/Reveal.tsx`
+
+Wrapper applying `.jp-reveal` with a delay. `<Reveal step={n}>` spaces items by `REVEAL_STAGGER_MS`; `delayMs` overrides for irregular timing. Used for the find-jobs chrome and the job-details section cascade; dashboard components take a `revealDelayMs` prop instead because they set the class on their own card.
+
+### StatsBar — `components/dashboard/StatsBar.tsx`
+
+Four equal cards: Total Jobs Found, Avg. Match Rate, Companies Researched, Jobs This Week. Props: `stats: DashboardStats`, `revealDelayMs?`. Trend chips use `Badge` + `bg-success-lightest text-success-darker`; researched / this-week use gray subtext.
+
+- Grid: `grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4`
+- Card: `Card size="sm"` + `bg-surface shadow-none`; value `text-3xl font-bold text-text-primary`
+- Cards reveal left-to-right, `REVEAL_STAGGER_MS` apart
+
+### RecentActivity — `components/dashboard/RecentActivity.tsx`
+
+Vertical feed of typed activity items. Dots: `job_found` → `bg-success-light` / `bg-success-alt`; `company_researched` → `bg-info-light` / `bg-info` (via `activityDotClasses`).
+
+- Card title `text-base font-semibold`; list `gap-5`; message `text-sm font-medium`; time `text-xs text-text-muted`
+- Items trail the card by 60ms and stagger 30ms, capped at 6 steps so long feeds never feel slow
+
+### AnalyticsCharts — `components/dashboard/AnalyticsCharts.tsx`
+
+Exports `CompanyResearchChart` (info `BarChart`), `JobsFoundOverTimeChart` (accent `AreaChart` monotone + gradient), and `MatchScoreDistributionChart` (success `BarChart`). Grid lines dashed `stroke-border`; axis ticks `text-text-muted` 12px. Chart height `h-[220px]` on `ChartContainer`.
+
+- Series draw-in via `useSeriesAnimation`: 600ms `ease-out` (Recharts' 1500ms default reads as sluggish), beginning 120ms after the card so card and data feel like one motion
+- `isAnimationActive` is off under `prefers-reduced-motion`
+
+### DashboardPageSkeleton — `components/layout/DashboardPageSkeleton.tsx`
+
+AuthGuard fallback mirroring stats row + mid activity/chart + bottom two charts (no Navbar; AuthGuard supplies it).
 
 ### Profile page — `app/profile/page.tsx`
 

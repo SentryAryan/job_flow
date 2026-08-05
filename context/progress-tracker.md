@@ -6,9 +6,9 @@ Update this file after every completed feature. Any AI agent reading this should
 
 ## Current Status
 
-**Phase:** Phase 4 — Job Details Page
-**Last completed:** 13 Company Research Agent
-**Next:** 14 Dashboard Page — Full UI
+**Phase:** Phase 5 — Dashboard
+**Last completed:** 14 Dashboard Page — Full UI
+**Next:** 15 Stats Bar — Real Data
 
 ---
 
@@ -47,7 +47,7 @@ Update this file after every completed feature. Any AI agent reading this should
 
 ### Phase 5 — Dashboard
 
-- [ ] 14 Dashboard Page — Full UI
+- [x] 14 Dashboard Page — Full UI
 - [ ] 15 Stats Bar — Real Data
 - [ ] 16 Recent Activity — Real Data
 - [ ] 17 Analytics Charts — PostHog Data
@@ -101,6 +101,8 @@ Update this file after every completed feature. Any AI agent reading this should
 - **10–11 Adzuna discovery + real list** — `POST /api/agent/find` (Bearer JWT → `createAuthedInsforgeClient`): Adzuna search by `what` + optional `where` only — **no `category` filter** (`lib/adzuna.ts`), sector-agnostic OpenRouter `generateObject` scoring (`agent/match-score.ts` + `agent/adzuna.ts`, same provider/failover/BYOK as Extract/Generate), writes `agent_runs` / `jobs` / `agent_logs`, returns banner counts. Shared Resume AI Redis pool (`resume-ai:{userId}`) — skipped with BYOK; **+1 hit per successful scoring batch** (not per click); 429 only in production. Find Jobs list via `GET /api/jobs` (Postgres filter/sort/`range` + exact count via `lib/jobs-list-query.ts`; query `page`, `pageSize` 10|20|50, `q` company|title, `match`, `sort`); client `fetchJobsPage`. Default page size 20; Rows select in pagination. Loading: table skeleton, search progress banner + overlay with rotating status copy. High match ≥70. PostHog `job_search_started` / `job_found`. Navbar avatar dropdown embeds compact AI usage + OpenRouter keys panels. SOURCE / Adzuna credit still omitted (design follow-up).
 - **10–11 Scoring harden + InsForge timeouts** — Match scoring batches 5 jobs, hardened prompt/schema (compact JSON `{scores:[]}` only), heals markdown fences / bare arrays / truncated JSON before skill-overlap fallback. Server InsForge clients use 60s timeout; `requireAuth` maps auth timeouts to 503 (not 401); `GET /api/jobs` maps DB timeouts to 504.
 - **12 Job Details** — `/find-jobs/[id]` AuthGuard page matching `context/designs/job-details.png`: header (match pill + View Job Post), meta cards, AI match reasoning, skills comparison (green “You have” / purple “Gap skills”), expandable job description, Company Research empty state + stub Research button (Sonner info — Feature 13 wires agent), Apply Now CTA. Data via `GET /api/jobs/[id]` + `fetchJobById` (`lib/jobs.ts`); helpers in `lib/job-detail.ts`. Dossier UI renders when `company_research` is already set. Shared Navbar (avatar), not design’s inline Sign out.
+- **14 Dashboard Page — UI only** — Replaced Feature 02 placeholder with full `/dashboard` matching `context/designs/dashboard.png` + mock data (`lib/mock-dashboard.ts`). Labels follow design / Features 15–17 (Jobs This Week, Company Research Activity) over stale build-plan “Cover Letters” / “Resume Tailoring”. Components under `components/dashboard/` (`StatsBar`, `RecentActivity`, chart cards in `AnalyticsCharts.tsx`). Charts via shadcn `chart` + recharts (`--chart-1` accent area, `--chart-2` info bars, `--chart-3` success bars). Incomplete profile shows existing `CompletionBanner` when `!is_complete`. Stats/activity/charts stay mocked until Features 15–17. AuthGuard + Navbar + `dashboard_viewed`; layout skeleton mirrors stats + mid/bottom rows. Entrance motion via the shared `.jp-reveal` CSS cascade (`app/globals.css` + `revealDelay()` in `lib/motion-tokens.ts`) and tuned Recharts series timing; both degrade under `prefers-reduced-motion`.
+- **09–13 Motion pass** — Extended the `.jp-reveal` cascade to `/find-jobs` and `/find-jobs/[id]` via a shared `Reveal` wrapper (`components/motion/Reveal.tsx`). Find Jobs reveals search → filters → results card once per visit; the reveal sits on the stable results `<section>` so filter / sort / pagination never replay it. Job details cascades all eight sections (steps 0–7). Async arrivals reveal on landing: search success banner, and the research dossier only when a run completes in-session (`justResearched`) so pre-existing research doesn't double-animate. Two defects fixed along the way — the busy dim only had its `transition-opacity` class while busy (restoring snapped back), and `MatchScoreBar` animated `width` (layout per frame across a full page of rows) instead of `scaleX` on `origin-left`.
 
 ---
 
