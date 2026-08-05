@@ -165,8 +165,8 @@ export const ResumeAiUsageCard = forwardRef<
             Resume AI usage
           </CardTitle>
           <CardDescription className="mt-1 text-sm text-text-secondary">
-            Extract from Resume, Generate Resume, and Find Jobs share these
-            limits.
+            Extract from Resume, Generate Resume, Find Jobs, and Company
+            Research share these limits.
           </CardDescription>
         </div>
         <Button

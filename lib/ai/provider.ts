@@ -1,5 +1,7 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 
+import { createOpenRouterChatCompletionFetch } from "@/lib/research-llm-meter";
+
 /** Preferred key index for warm processes (best-effort across requests). */
 let preferredKeyIndex = 0;
 
@@ -101,6 +103,11 @@ export function isOpenRouterKeyUnusableError(error: unknown): boolean {
 export type OpenRouterFailoverOptions = {
   /** When set (non-empty), use only these keys — no platform env fallback. */
   keys?: string[];
+  /**
+   * Invoked once per OpenRouter `chat/completions` HTTP round-trip
+   * (includes key failover retries and response-healing follow-ups).
+   */
+  onChatCompletionHttp?: () => void;
 };
 
 function resolveKeyPool(override?: string[]): {
@@ -129,8 +136,13 @@ function resolveKeyPool(override?: string[]): {
  * Default: OpenRouter free router (`openrouter/free`) with response-healing.
  * Pass `apiKey` to target a specific key (used by failover).
  * Pass `keysOverride` when resolving the sticky index from a BYOK pool.
+ * Pass `onChatCompletionHttp` to meter each chat/completions HTTP call.
  */
-export function getLanguageModel(apiKey?: string, keysOverride?: string[]) {
+export function getLanguageModel(
+  apiKey?: string,
+  keysOverride?: string[],
+  options?: Pick<OpenRouterFailoverOptions, "onChatCompletionHttp">,
+) {
   const provider = process.env.AI_PROVIDER ?? "openrouter";
   const modelId = process.env.AI_MODEL ?? "openrouter/free";
   const { keys, usingOverride } = resolveKeyPool(keysOverride);
@@ -153,7 +165,16 @@ export function getLanguageModel(apiKey?: string, keysOverride?: string[]) {
     );
   }
 
-  const openrouter = createOpenRouter({ apiKey: resolvedKey });
+  const openrouter = createOpenRouter({
+    apiKey: resolvedKey,
+    ...(options?.onChatCompletionHttp
+      ? {
+          fetch: createOpenRouterChatCompletionFetch(
+            options.onChatCompletionHttp,
+          ),
+        }
+      : {}),
+  });
 
   return openrouter(modelId, {
     plugins: [{ id: "response-healing" }],
@@ -187,7 +208,11 @@ export async function withOpenRouterKeyFailover<T>(
     const key = keys[index]!;
 
     try {
-      const result = await run(getLanguageModel(key, keys));
+      const result = await run(
+        getLanguageModel(key, keys, {
+          onChatCompletionHttp: options?.onChatCompletionHttp,
+        }),
+      );
       if (!usingOverride) {
         preferredKeyIndex = index;
       }

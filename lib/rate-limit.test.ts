@@ -4,6 +4,7 @@ import {
     MemorySlidingWindowStore,
     checkRateLimits,
     getRateLimitUsage,
+    getResumeAiIpRateWindows,
     getResumeAiRateWindows,
 } from "@/lib/rate-limit";
 
@@ -32,6 +33,22 @@ describe("checkRateLimits (memory sliding window)", () => {
     expect((await checkRateLimits(store, "a", windows)).allowed).toBe(true);
     expect((await checkRateLimits(store, "b", windows)).allowed).toBe(true);
     expect((await checkRateLimits(store, "a", windows)).allowed).toBe(false);
+  });
+
+  it("records multiple hits in one checkRateLimits call via hitN", async () => {
+    const store = new MemorySlidingWindowStore();
+    const windows = [{ name: "1m", windowMs: 60_000, limit: 5 }];
+
+    const result = await checkRateLimits(store, "batch-user", windows, 3);
+    expect(result.allowed).toBe(true);
+    expect(result.remaining).toBe(2);
+
+    const usage = await getRateLimitUsage(store, "batch-user", windows);
+    expect(usage[0]?.used).toBe(3);
+
+    const over = await checkRateLimits(store, "batch-user", windows, 3);
+    expect(over.allowed).toBe(false);
+    expect(over.blockedBy).toBe("1m");
   });
 });
 
@@ -95,5 +112,31 @@ describe("getResumeAiRateWindows", () => {
     vi.stubEnv("RESUME_AI_RATE_LIMIT_PER_HOUR", "nope");
     vi.stubEnv("RESUME_AI_RATE_LIMIT_PER_DAY", "-3");
     expect(getResumeAiRateWindows().map((w) => w.limit)).toEqual([3, 15, 40]);
+  });
+});
+
+describe("getResumeAiIpRateWindows", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("returns IP defaults when env unset", () => {
+    vi.stubEnv("RESUME_AI_IP_RATE_LIMIT_PER_MINUTE", "");
+    vi.stubEnv("RESUME_AI_IP_RATE_LIMIT_PER_HOUR", "");
+    vi.stubEnv("RESUME_AI_IP_RATE_LIMIT_PER_DAY", "");
+    expect(getResumeAiIpRateWindows()).toEqual([
+      { name: "1m", windowMs: 60_000, limit: 10 },
+      { name: "1h", windowMs: 60 * 60_000, limit: 45 },
+      { name: "1d", windowMs: 24 * 60 * 60_000, limit: 120 },
+    ]);
+  });
+
+  it("parses positive integer IP env overrides", () => {
+    vi.stubEnv("RESUME_AI_IP_RATE_LIMIT_PER_MINUTE", "20");
+    vi.stubEnv("RESUME_AI_IP_RATE_LIMIT_PER_HOUR", "90");
+    vi.stubEnv("RESUME_AI_IP_RATE_LIMIT_PER_DAY", "200");
+    expect(getResumeAiIpRateWindows().map((w) => w.limit)).toEqual([
+      20, 90, 200,
+    ]);
   });
 });

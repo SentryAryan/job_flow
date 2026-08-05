@@ -16,6 +16,7 @@ import { JobsTable } from "@/components/find-jobs/JobsTable";
 import { SearchControls } from "@/components/find-jobs/SearchControls";
 import Navbar from "@/components/layout/Navbar";
 import { captureEvent } from "@/lib/analytics";
+import { playCompletionSound } from "@/lib/completion-sound";
 import { findJobs } from "@/lib/find-jobs-api";
 import {
     FIND_JOBS_PAGE_SIZE,
@@ -188,6 +189,7 @@ function FindJobsPageContent() {
 
     setSuccessMessage(result.data.message);
     setShowSuccessBanner(true);
+    playCompletionSound();
 
     skipNextAutoLoad.current = true;
     setFilterQuery("");
@@ -216,7 +218,6 @@ function FindJobsPageContent() {
       : "No jobs match your filters. Try adjusting search or match level.";
 
   const busy = searching || listRefreshing;
-  const searchStatusMessage = SEARCH_STATUS_MESSAGES[searchStatusIndex]!;
 
   return (
     <div className="min-h-screen bg-background">
@@ -228,7 +229,7 @@ function FindJobsPageContent() {
           showSuccessBanner={showSuccessBanner}
           successMessage={successMessage}
           searching={searching}
-          searchStatusMessage={searchStatusMessage}
+          searchStatusIndex={searchStatusIndex}
           onJobTitleChange={setJobTitle}
           onLocationChange={setLocation}
           onFindJobs={() => {

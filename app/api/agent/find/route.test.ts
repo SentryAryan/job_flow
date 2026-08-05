@@ -7,6 +7,7 @@ const {
   mockDiscoverJobs,
   mockCanUseQuota,
   mockEnforceRateLimit,
+  mockEnforceIpRateLimit,
   mockLoadByokKeys,
   mockMapRowToProfile,
 } = vi.hoisted(() => ({
@@ -15,6 +16,7 @@ const {
   mockDiscoverJobs: vi.fn(),
   mockCanUseQuota: vi.fn(),
   mockEnforceRateLimit: vi.fn(),
+  mockEnforceIpRateLimit: vi.fn(async () => ({ enforced: false as const })),
   mockLoadByokKeys: vi.fn(async () => [] as string[]),
   mockMapRowToProfile: vi.fn((row: Record<string, unknown>) => row),
 }));
@@ -44,6 +46,7 @@ vi.mock("@/lib/profile", () => ({
 vi.mock("@/lib/resume-ai-rate-limit", () => ({
   canUseResumeAiQuota: mockCanUseQuota,
   enforceResumeAiRateLimit: mockEnforceRateLimit,
+  enforceResumeAiIpRateLimit: mockEnforceIpRateLimit,
   rateLimitHeadersFromUsage: () => ({
     "X-RateLimit-Limit": "3",
     "X-RateLimit-Remaining": "0",
@@ -121,6 +124,7 @@ describe("POST /api/agent/find", () => {
       allowed: true,
     });
     mockEnforceRateLimit.mockResolvedValue({ enforced: false });
+    mockEnforceIpRateLimit.mockResolvedValue({ enforced: false });
     mockDiscoverJobs.mockResolvedValue({
       success: true,
       jobsFound: 2,
@@ -200,6 +204,28 @@ describe("POST /api/agent/find", () => {
       success: false,
       error: "Too many AI requests. Please try again later.",
     });
+    expect(mockDiscoverJobs).not.toHaveBeenCalled();
+  });
+
+  it("returns 429 when IP rate limit is exceeded before discovery", async () => {
+    mockEnforceIpRateLimit.mockResolvedValue({
+      enforced: true,
+      result: {
+        allowed: false,
+        limit: 10,
+        remaining: 0,
+        resetAt: Date.now() + 60_000,
+        blockedBy: "1m",
+      },
+    });
+
+    const response = await postFind({ jobTitle: "Engineer" });
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toMatchObject({
+      success: false,
+      error: "Too many requests from this network. Please try again later.",
+    });
+    expect(mockCanUseQuota).not.toHaveBeenCalled();
     expect(mockDiscoverJobs).not.toHaveBeenCalled();
   });
 

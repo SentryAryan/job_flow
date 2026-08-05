@@ -1,15 +1,14 @@
 "use client";
 
-import { Loader2, Search } from "lucide-react";
-
+import { MultiStepProgress } from "@/components/ui/multi-step-progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 /** Rotating status under the Find Jobs form (matches real discovery steps). */
 export const SEARCH_STATUS_MESSAGES = [
-  "Searching Adzuna for matching roles…",
-  "Scoring jobs against your profile…",
-  "Saving discovered jobs…",
+  "Search Adzuna for matching roles",
+  "Score jobs against your profile",
+  "Save discovered jobs",
 ] as const;
 
 const SKELETON_COLUMNS = [
@@ -18,6 +17,7 @@ const SKELETON_COLUMNS = [
   "Match Score",
   "Salary Est.",
   "Date Found",
+  "Details",
 ] as const;
 
 type JobsTableSkeletonProps = {
@@ -36,16 +36,23 @@ export function JobsTableSkeleton({
       aria-busy
       aria-label="Loading jobs"
     >
-      <table className="w-full min-w-[40rem] border-collapse text-left">
+      <table className="w-full min-w-[44rem] border-collapse text-left">
         <thead>
           <tr className="border-b border-border">
             {SKELETON_COLUMNS.map((column) => (
               <th
                 key={column}
                 scope="col"
-                className="px-4 py-3 text-[11px] font-medium tracking-wide text-text-secondary uppercase sm:px-5"
+                className={cn(
+                  "px-4 py-3 text-[11px] font-medium tracking-wide text-text-secondary uppercase sm:px-5",
+                  column === "Details" && "text-right",
+                )}
               >
-                {column}
+                {column === "Details" ? (
+                  <span className="sr-only">Details</span>
+                ) : (
+                  column
+                )}
               </th>
             ))}
           </tr>
@@ -77,6 +84,9 @@ export function JobsTableSkeleton({
               <td className="px-4 py-3.5 sm:px-5">
                 <Skeleton className="h-4 w-20" />
               </td>
+              <td className="px-4 py-3.5 text-right sm:px-5">
+                <Skeleton className="ml-auto size-8 rounded-md" />
+              </td>
             </tr>
           ))}
         </tbody>
@@ -86,27 +96,22 @@ export function JobsTableSkeleton({
 }
 
 type SearchProgressBannerProps = {
-  message: string;
+  steps?: readonly string[];
+  currentIndex: number;
   className?: string;
 };
 
-/** Inline progress banner under the Find Jobs form. */
+/** Multi-step progress under the Find Jobs form. */
 export function SearchProgressBanner({
-  message,
+  steps = SEARCH_STATUS_MESSAGES,
+  currentIndex,
   className,
 }: SearchProgressBannerProps) {
   return (
-    <div
-      className={cn(
-        "mt-4 flex items-center gap-2.5 rounded-lg border border-accent/25 bg-accent-light px-3.5 py-2.5 text-sm font-medium text-accent",
-        className,
-      )}
-      role="status"
-      aria-live="polite"
-    >
-      <Search className="size-4 shrink-0 animate-pulse" aria-hidden />
-      <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
-      <span>{message}</span>
-    </div>
+    <MultiStepProgress
+      steps={steps}
+      currentIndex={currentIndex}
+      className={className}
+    />
   );
 }

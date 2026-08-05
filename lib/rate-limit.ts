@@ -37,6 +37,14 @@ export type RateLimitStore = {
     window: RateLimitWindow,
   ): Promise<{ count: number; resetAt: number }>;
   /**
+   * Record `n` hits in one sliding-window transaction (atomic for Redis).
+   */
+  hitN(
+    key: string,
+    window: RateLimitWindow,
+    n: number,
+  ): Promise<{ count: number; resetAt: number }>;
+  /**
    * Read current hit count without recording a new hit.
    */
   peek(
@@ -59,21 +67,36 @@ export class RedisSlidingWindowStore implements RateLimitStore {
     key: string,
     window: RateLimitWindow,
   ): Promise<{ count: number; resetAt: number }> {
+    return this.hitN(key, window, 1);
+  }
+
+  async hitN(
+    key: string,
+    window: RateLimitWindow,
+    n: number,
+  ): Promise<{ count: number; resetAt: number }> {
+    const hits = Math.max(0, Math.floor(n));
+    if (hits === 0) {
+      return this.peek(key, window);
+    }
+
     const redis = await getRedisClient();
     const now = Date.now();
     const windowStart = now - window.windowMs;
     const redisKey = redisKeyFor(key, window);
-    const member = `${now}:${Math.random().toString(36).slice(2, 10)}`;
 
     const multi = redis.multi();
     multi.zRemRangeByScore(redisKey, 0, windowStart);
-    multi.zAdd(redisKey, { score: now, value: member });
+    for (let i = 0; i < hits; i += 1) {
+      const member = `${now}:${i}:${Math.random().toString(36).slice(2, 10)}`;
+      multi.zAdd(redisKey, { score: now, value: member });
+    }
     multi.zCard(redisKey);
     multi.pExpire(redisKey, window.windowMs);
     const results = await multi.exec();
 
-    // exec returns [zRem…, zAdd…, zCard…, pExpire…]
-    const count = Number(results?.[2] ?? 0);
+    // exec returns [zRem…, zAdd×n…, zCard…, pExpire…]
+    const count = Number(results?.[1 + hits] ?? 0);
     return {
       count,
       resetAt: now + window.windowMs,
@@ -111,11 +134,21 @@ export class MemorySlidingWindowStore implements RateLimitStore {
     key: string,
     window: RateLimitWindow,
   ): Promise<{ count: number; resetAt: number }> {
+    return this.hitN(key, window, 1);
+  }
+
+  async hitN(
+    key: string,
+    window: RateLimitWindow,
+    n: number,
+  ): Promise<{ count: number; resetAt: number }> {
+    const hits = Math.max(0, Math.floor(n));
     const now = Date.now();
     const redisKey = redisKeyFor(key, window);
     const windowStart = now - window.windowMs;
     const prior = this.hits.get(redisKey) ?? [];
-    const next = [...prior.filter((ts) => ts > windowStart), now];
+    const kept = prior.filter((ts) => ts > windowStart);
+    const next = [...kept, ...Array.from({ length: hits }, () => now)];
     this.hits.set(redisKey, next);
     return { count: next.length, resetAt: now + window.windowMs };
   }
@@ -146,7 +179,9 @@ export async function checkRateLimits(
   store: RateLimitStore,
   identityKey: string,
   windows: RateLimitWindow[],
+  hits = 1,
 ): Promise<RateLimitResult> {
+  const n = Math.max(1, Math.floor(hits));
   let strictest: RateLimitResult = {
     allowed: true,
     limit: windows[0]?.limit ?? 0,
@@ -155,7 +190,7 @@ export async function checkRateLimits(
   };
 
   for (const window of windows) {
-    const { count, resetAt } = await store.hit(identityKey, window);
+    const { count, resetAt } = await store.hitN(identityKey, window, n);
     const remaining = Math.max(0, window.limit - count);
     const allowed = count <= window.limit;
 
@@ -215,6 +250,12 @@ const DEFAULT_LIMITS = {
   day: 40,
 } as const;
 
+const DEFAULT_IP_LIMITS = {
+  minute: 10,
+  hour: 45,
+  day: 120,
+} as const;
+
 function parsePositiveInt(raw: string | undefined, fallback: number): number {
   if (raw == null || raw.trim() === "") return fallback;
   const n = Number.parseInt(raw.trim(), 10);
@@ -254,12 +295,53 @@ export function getResumeAiRateWindows(
   ];
 }
 
+/**
+ * Looser per-IP windows (~3× user) for multi-account abuse backstop.
+ * Shared across Extract + Generate + Find Jobs (1 hit per request).
+ */
+export function getResumeAiIpRateWindows(
+  env: NodeJS.ProcessEnv = process.env,
+): RateLimitWindow[] {
+  return [
+    {
+      name: "1m",
+      windowMs: 60_000,
+      limit: parsePositiveInt(
+        env.RESUME_AI_IP_RATE_LIMIT_PER_MINUTE,
+        DEFAULT_IP_LIMITS.minute,
+      ),
+    },
+    {
+      name: "1h",
+      windowMs: 60 * 60_000,
+      limit: parsePositiveInt(
+        env.RESUME_AI_IP_RATE_LIMIT_PER_HOUR,
+        DEFAULT_IP_LIMITS.hour,
+      ),
+    },
+    {
+      name: "1d",
+      windowMs: 24 * 60 * 60_000,
+      limit: parsePositiveInt(
+        env.RESUME_AI_IP_RATE_LIMIT_PER_DAY,
+        DEFAULT_IP_LIMITS.day,
+      ),
+    },
+  ];
+}
+
 /** @deprecated Use getResumeAiRateWindows() — kept for transitional imports. */
 export const RESUME_EXTRACT_RATE_WINDOWS: RateLimitWindow[] =
   getResumeAiRateWindows();
 
 export const RESUME_AI_IDENTITY_PREFIX = "resume-ai";
+export const RESUME_AI_IP_IDENTITY_PREFIX = "resume-ai-ip";
 
 export function resumeAiIdentityKey(userId: string): string {
   return `${RESUME_AI_IDENTITY_PREFIX}:${userId}`;
+}
+
+/** `ipHash` from hashIpForRateLimit — never pass a raw IP. */
+export function resumeAiIpIdentityKey(ipHash: string): string {
+  return `${RESUME_AI_IP_IDENTITY_PREFIX}:${ipHash}`;
 }

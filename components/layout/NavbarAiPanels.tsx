@@ -42,7 +42,7 @@ type NavbarAiUsagePanelProps = {
   className?: string;
 };
 
-/** Compact shared AI usage (Extract / Generate / Find Jobs) for the avatar menu. */
+/** Compact shared AI usage (Extract / Generate / Find Jobs / Research) for the avatar menu. */
 export function NavbarAiUsagePanel({
   refreshToken = 0,
   className,
@@ -118,7 +118,7 @@ export function NavbarAiUsagePanel({
         </Button>
       </div>
       <p className="text-[11px] leading-snug text-text-secondary">
-        Shared by Extract, Generate, and Find Jobs.
+        Shared by Extract, Generate, Find Jobs, and Company Research.
       </p>
       {data.windows.map((window) => {
         const pct = usagePercent(window.used, window.limit);
@@ -223,8 +223,8 @@ export function NavbarOpenRouterKeysPanel({
     <div className={cn("flex flex-col gap-2 px-2 py-2", className)}>
       <p className="text-xs font-semibold text-text-primary">OpenRouter keys</p>
       <p className="text-[11px] leading-snug text-text-secondary">
-        Optional. Your keys skip JobPilot limits for Extract, Generate, and Find
-        Jobs.
+        Optional. Your keys skip JobPilot limits for Extract, Generate, Find
+        Jobs, and Company Research.
       </p>
 
       {loading ? (

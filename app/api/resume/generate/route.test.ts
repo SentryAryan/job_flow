@@ -7,7 +7,9 @@ const {
   mockRequireAuth,
   mockGenerateObject,
   mockGetLanguageModel,
+  mockAdmitQuota,
   mockEnforceRateLimit,
+  mockEnforceIpRateLimit,
   mockRenderResumePdfBuffer,
   mockCreateClient,
   mockSelectSingle,
@@ -50,7 +52,24 @@ const {
     mockRequireAuth: vi.fn(),
     mockGenerateObject: vi.fn(),
     mockGetLanguageModel: vi.fn(() => "mock-model"),
+    mockAdmitQuota: vi.fn(async (): Promise<
+      | { admitted: true }
+      | { admitted: false; headers: HeadersInit }
+    > => ({ admitted: true })),
     mockEnforceRateLimit: vi.fn(async (): Promise<
+      | { enforced: false }
+      | {
+          enforced: true;
+          result: {
+            allowed: boolean;
+            limit: number;
+            remaining: number;
+            resetAt: number;
+            blockedBy?: string;
+          };
+        }
+    > => ({ enforced: false })),
+    mockEnforceIpRateLimit: vi.fn(async (): Promise<
       | { enforced: false }
       | {
           enforced: true;
@@ -85,7 +104,9 @@ vi.mock("@/lib/ai/provider", () => ({
 }));
 
 vi.mock("@/lib/resume-ai-rate-limit", () => ({
+  admitResumeAiUserQuota: mockAdmitQuota,
   enforceResumeAiRateLimit: mockEnforceRateLimit,
+  enforceResumeAiIpRateLimit: mockEnforceIpRateLimit,
   rateLimitResponseHeaders: (result: {
     limit: number;
     remaining: number;
@@ -165,7 +186,9 @@ describe("POST /api/resume/generate", () => {
       user: { id: "user-1", email: "a@b.com" },
       accessToken: "token",
     });
+    mockAdmitQuota.mockResolvedValue({ admitted: true });
     mockEnforceRateLimit.mockResolvedValue({ enforced: false });
+    mockEnforceIpRateLimit.mockResolvedValue({ enforced: false });
     mockLoadByokKeys.mockResolvedValue([]);
     process.env.OPENROUTER_API_KEY = "test-key";
     process.env.APP_ENV = "development";
@@ -217,12 +240,30 @@ describe("POST /api/resume/generate", () => {
     });
   });
 
-  it("returns 429 when rate limited", async () => {
-    mockEnforceRateLimit.mockResolvedValue({
+  it("returns 429 when rate limited without recording a hit", async () => {
+    mockAdmitQuota.mockResolvedValue({
+      admitted: false,
+      headers: {
+        "X-RateLimit-Limit": "3",
+        "X-RateLimit-Remaining": "0",
+        "Retry-After": "60",
+      },
+    });
+
+    const response = await postGenerate();
+    expect(response.status).toBe(429);
+    const body = await response.json();
+    expect(body.success).toBe(false);
+    expect(mockEnforceRateLimit).not.toHaveBeenCalled();
+    expect(mockGenerateObject).not.toHaveBeenCalled();
+  });
+
+  it("returns 429 when IP rate limit is exceeded before user quota", async () => {
+    mockEnforceIpRateLimit.mockResolvedValue({
       enforced: true,
       result: {
         allowed: false,
-        limit: 3,
+        limit: 10,
         remaining: 0,
         resetAt: Date.now() + 60_000,
         blockedBy: "1m",
@@ -231,17 +272,31 @@ describe("POST /api/resume/generate", () => {
 
     const response = await postGenerate();
     expect(response.status).toBe(429);
-    const body = await response.json();
-    expect(body.success).toBe(false);
+    await expect(response.json()).resolves.toMatchObject({
+      success: false,
+      error: "Too many requests from this network. Please try again later.",
+    });
+    expect(mockAdmitQuota).not.toHaveBeenCalled();
+    expect(mockEnforceRateLimit).not.toHaveBeenCalled();
   });
 
   it("skips shared rate limits when BYOK keys are present", async () => {
     mockLoadByokKeys.mockResolvedValue(["sk-or-v1-user-key-abcdef"]);
-    mockEnforceRateLimit.mockResolvedValue({
+
+    const response = await postGenerate();
+    expect(response.status).toBe(200);
+    expect(mockAdmitQuota).not.toHaveBeenCalled();
+    expect(mockEnforceRateLimit).not.toHaveBeenCalled();
+    expect(mockEnforceIpRateLimit).toHaveBeenCalled();
+  });
+
+  it("still enforces IP rate limits when BYOK keys are present", async () => {
+    mockLoadByokKeys.mockResolvedValue(["sk-or-v1-user-key-abcdef"]);
+    mockEnforceIpRateLimit.mockResolvedValue({
       enforced: true,
       result: {
         allowed: false,
-        limit: 3,
+        limit: 10,
         remaining: 0,
         resetAt: Date.now() + 60_000,
         blockedBy: "1m",
@@ -249,7 +304,11 @@ describe("POST /api/resume/generate", () => {
     });
 
     const response = await postGenerate();
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toMatchObject({
+      success: false,
+      error: "Too many requests from this network. Please try again later.",
+    });
     expect(mockEnforceRateLimit).not.toHaveBeenCalled();
   });
 
@@ -282,6 +341,8 @@ describe("POST /api/resume/generate", () => {
     expect(mockRenderResumePdfBuffer).toHaveBeenCalled();
     expect(mockUpload).toHaveBeenCalled();
     expect(mockUpdateSingle).toHaveBeenCalled();
+    expect(mockAdmitQuota).toHaveBeenCalled();
+    expect(mockEnforceRateLimit).toHaveBeenCalledTimes(1);
   });
 
   it("falls back to profile polish when AI fails entirely", async () => {
@@ -338,5 +399,6 @@ SaaS`),
     mockSelectSingle.mockResolvedValue({ data: null, error: { message: "none" } });
     const response = await postGenerate();
     expect(response.status).toBe(404);
+    expect(mockEnforceRateLimit).not.toHaveBeenCalled();
   });
 });

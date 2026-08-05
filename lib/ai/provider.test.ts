@@ -31,7 +31,9 @@ describe("getLanguageModel / OpenRouter key failover", () => {
     const { getLanguageModel } = await loadProvider();
     const model = getLanguageModel();
 
-    expect(mockCreateOpenRouter).toHaveBeenCalledWith({ apiKey: "sk-test" });
+    expect(mockCreateOpenRouter).toHaveBeenCalledWith(
+      expect.objectContaining({ apiKey: "sk-test" }),
+    );
     expect(mockModel).toHaveBeenCalledWith("openrouter/free", {
       plugins: [{ id: "response-healing" }],
     });
@@ -51,7 +53,9 @@ describe("getLanguageModel / OpenRouter key failover", () => {
 
     expect(getOpenRouterApiKeys()).toEqual(["sk-multi-1", "sk-multi-2"]);
     getLanguageModel();
-    expect(mockCreateOpenRouter).toHaveBeenCalledWith({ apiKey: "sk-multi-1" });
+    expect(mockCreateOpenRouter).toHaveBeenCalledWith(
+      expect.objectContaining({ apiKey: "sk-multi-1" }),
+    );
   });
 
   it("throws when no OpenRouter keys are configured", async () => {
@@ -97,8 +101,14 @@ describe("getLanguageModel / OpenRouter key failover", () => {
 
     expect(result).toEqual({ ok: true });
     expect(run).toHaveBeenCalledTimes(2);
-    expect(mockCreateOpenRouter).toHaveBeenNthCalledWith(1, { apiKey: "sk-dead" });
-    expect(mockCreateOpenRouter).toHaveBeenNthCalledWith(2, { apiKey: "sk-live" });
+    expect(mockCreateOpenRouter).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ apiKey: "sk-dead" }),
+    );
+    expect(mockCreateOpenRouter).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ apiKey: "sk-live" }),
+    );
   });
 
   it("does not rotate keys for non-rate-limit errors", async () => {
@@ -128,11 +138,29 @@ describe("getLanguageModel / OpenRouter key failover", () => {
     });
 
     expect(result).toEqual({ ok: true });
-    expect(mockCreateOpenRouter).toHaveBeenNthCalledWith(1, {
-      apiKey: "sk-byok-dead",
-    });
-    expect(mockCreateOpenRouter).toHaveBeenNthCalledWith(2, {
-      apiKey: "sk-byok-live",
-    });
+    expect(mockCreateOpenRouter).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ apiKey: "sk-byok-dead" }),
+    );
+    expect(mockCreateOpenRouter).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ apiKey: "sk-byok-live" }),
+    );
+  });
+
+  it("passes a chat-completion fetch meter when onChatCompletionHttp is set", async () => {
+    process.env.OPENROUTER_API_KEY = "sk-test";
+    const { withOpenRouterKeyFailover } = await loadProvider();
+    const onChatCompletionHttp = vi.fn();
+    const run = vi.fn().mockResolvedValue({ ok: true });
+
+    await withOpenRouterKeyFailover(run, { onChatCompletionHttp });
+
+    expect(mockCreateOpenRouter).toHaveBeenCalledWith(
+      expect.objectContaining({
+        apiKey: "sk-test",
+        fetch: expect.any(Function),
+      }),
+    );
   });
 });

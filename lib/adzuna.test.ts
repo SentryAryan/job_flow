@@ -135,4 +135,43 @@ describe("searchAdzunaJobs", () => {
     );
     expect(calledUrl).toContain("/jobs/us/search/1");
   });
+
+  it("retries once on transient fetch failure then succeeds", async () => {
+    const networkError = new TypeError("fetch failed", {
+      cause: Object.assign(new Error("connect"), { code: "ETIMEDOUT" }),
+    });
+    const fetchImpl = vi
+      .fn()
+      .mockRejectedValueOnce(networkError)
+      .mockResolvedValueOnce(Response.json({ results: [] }));
+
+    const results = await searchAdzunaJobs({
+      jobTitle: "Engineer",
+      location: "",
+      appId: "app",
+      appKey: "key",
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(results).toEqual([]);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("maps exhausted network failures to a clear Adzuna error", async () => {
+    const networkError = new TypeError("fetch failed", {
+      cause: Object.assign(new Error("connect"), { code: "ETIMEDOUT" }),
+    });
+    const fetchImpl = vi.fn().mockRejectedValue(networkError);
+
+    await expect(
+      searchAdzunaJobs({
+        jobTitle: "Engineer",
+        appId: "app",
+        appKey: "key",
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      }),
+    ).rejects.toThrow(/Adzuna API error: network unreachable/);
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
 });

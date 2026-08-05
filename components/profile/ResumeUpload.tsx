@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { captureEvent } from "@/lib/analytics";
 import { authedFetch } from "@/lib/authed-fetch";
+import { playCompletionSound } from "@/lib/completion-sound";
 import { fetchResumeBlob, uploadResume } from "@/lib/profile";
 import type { ProfileExtract } from "@/lib/resume-extract";
 import type { Profile } from "@/types";
@@ -371,6 +372,7 @@ export function ResumeUpload({
       }
 
       onExtracted(payload.data);
+      playCompletionSound();
       toast.success("Profile fields filled from resume — review and save");
     } catch {
       toast.error(
@@ -415,6 +417,7 @@ export function ResumeUpload({
       onGenerated?.(payload.data.resume_pdf_url);
       setPreviewReloadKey((key) => key + 1);
       captureEvent("resume_generated", { userId });
+      playCompletionSound();
       toast.success("Resume generated from your profile");
     } catch {
       toast.error("Could not generate resume. Please try again.");

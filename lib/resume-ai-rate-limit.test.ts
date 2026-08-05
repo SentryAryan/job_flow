@@ -3,7 +3,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemorySlidingWindowStore } from "@/lib/rate-limit";
 import {
     canUseResumeAiQuota,
+    enforceResumeAiIpRateLimit,
     enforceResumeAiRateLimit,
+    enforceResumeAiRateLimitHitsCapped,
+    minResumeAiRemaining,
     peekResumeAiUsage,
     rateLimitHeadersFromUsage,
 } from "@/lib/resume-ai-rate-limit";
@@ -192,5 +195,131 @@ describe("peekResumeAiUsage", () => {
       hasByokKeys: true,
     });
     expect(snap.available).toBe(false);
+  });
+});
+
+describe("enforceResumeAiIpRateLimit", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  function requestWithIp(ip: string) {
+    return new Request("http://localhost/api/resume/extract", {
+      headers: { "x-forwarded-for": ip },
+    });
+  }
+
+  it("skips when client IP cannot be determined", async () => {
+    vi.stubEnv("APP_ENV", "production");
+    vi.stubEnv("REDIS_URL", "redis://localhost:6379");
+    const store = new MemorySlidingWindowStore();
+    await expect(
+      enforceResumeAiIpRateLimit(new Request("http://localhost/api"), store),
+    ).resolves.toEqual({ enforced: false });
+  });
+
+  it("skips without Redis in development", async () => {
+    vi.stubEnv("APP_ENV", "dev");
+    vi.stubEnv("REDIS_URL", "");
+    await expect(
+      enforceResumeAiIpRateLimit(requestWithIp("203.0.113.1")),
+    ).resolves.toEqual({ enforced: false });
+  });
+
+  it("requires REDIS_URL in production", async () => {
+    vi.stubEnv("APP_ENV", "production");
+    vi.stubEnv("REDIS_URL", "");
+    await expect(
+      enforceResumeAiIpRateLimit(requestWithIp("203.0.113.1")),
+    ).rejects.toThrow(/REDIS_URL/);
+  });
+
+  it("records hits in development but does not enforce", async () => {
+    vi.stubEnv("APP_ENV", "development");
+    vi.stubEnv("REDIS_URL", "redis://localhost:6379");
+    vi.stubEnv("RESUME_AI_IP_RATE_LIMIT_PER_MINUTE", "2");
+    vi.stubEnv("RESUME_AI_IP_RATE_LIMIT_PER_HOUR", "45");
+    vi.stubEnv("RESUME_AI_IP_RATE_LIMIT_PER_DAY", "120");
+    const store = new MemorySlidingWindowStore();
+    const req = requestWithIp("203.0.113.9");
+
+    for (let i = 0; i < 3; i++) {
+      await expect(enforceResumeAiIpRateLimit(req, store)).resolves.toEqual({
+        enforced: false,
+      });
+    }
+  });
+
+  it("enforces IP sliding-window limits in production", async () => {
+    vi.stubEnv("APP_ENV", "production");
+    vi.stubEnv("REDIS_URL", "redis://localhost:6379");
+    vi.stubEnv("RESUME_AI_IP_RATE_LIMIT_PER_MINUTE", "2");
+    vi.stubEnv("RESUME_AI_IP_RATE_LIMIT_PER_HOUR", "45");
+    vi.stubEnv("RESUME_AI_IP_RATE_LIMIT_PER_DAY", "120");
+    const store = new MemorySlidingWindowStore();
+    const req = requestWithIp("203.0.113.42");
+
+    const a = await enforceResumeAiIpRateLimit(req, store);
+    const b = await enforceResumeAiIpRateLimit(req, store);
+    const c = await enforceResumeAiIpRateLimit(req, store);
+
+    expect(a).toMatchObject({ enforced: true, result: { allowed: true } });
+    expect(b).toMatchObject({ enforced: true, result: { allowed: true } });
+    expect(c).toMatchObject({
+      enforced: true,
+      result: { allowed: false, blockedBy: "1m" },
+    });
+  });
+
+  it("isolates IP pools from each other", async () => {
+    vi.stubEnv("APP_ENV", "production");
+    vi.stubEnv("REDIS_URL", "redis://localhost:6379");
+    vi.stubEnv("RESUME_AI_IP_RATE_LIMIT_PER_MINUTE", "1");
+    vi.stubEnv("RESUME_AI_IP_RATE_LIMIT_PER_HOUR", "45");
+    vi.stubEnv("RESUME_AI_IP_RATE_LIMIT_PER_DAY", "120");
+    const store = new MemorySlidingWindowStore();
+
+    expect(
+      await enforceResumeAiIpRateLimit(requestWithIp("203.0.113.1"), store),
+    ).toMatchObject({ enforced: true, result: { allowed: true } });
+    expect(
+      await enforceResumeAiIpRateLimit(requestWithIp("203.0.113.2"), store),
+    ).toMatchObject({ enforced: true, result: { allowed: true } });
+    expect(
+      await enforceResumeAiIpRateLimit(requestWithIp("203.0.113.1"), store),
+    ).toMatchObject({
+      enforced: true,
+      result: { allowed: false, blockedBy: "1m" },
+    });
+  });
+});
+
+describe("enforceResumeAiRateLimitHitsCapped", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("does not record more hits than remaining across windows", async () => {
+    vi.stubEnv("APP_ENV", "production");
+    vi.stubEnv("REDIS_URL", "redis://localhost:6379");
+    vi.stubEnv("RESUME_AI_RATE_LIMIT_PER_MINUTE", "3");
+    vi.stubEnv("RESUME_AI_RATE_LIMIT_PER_HOUR", "15");
+    vi.stubEnv("RESUME_AI_RATE_LIMIT_PER_DAY", "40");
+    const store = new MemorySlidingWindowStore();
+
+    await enforceResumeAiRateLimit("user-cap", store);
+    await enforceResumeAiRateLimit("user-cap", store);
+
+    const capped = await enforceResumeAiRateLimitHitsCapped(
+      "user-cap",
+      5,
+      store,
+    );
+    expect(capped.recorded).toBe(1);
+
+    const usage = await peekResumeAiUsage("user-cap", store);
+    expect(usage.available).toBe(true);
+    expect(usage.windows.find((w) => w.name === "1m")?.used).toBe(3);
+    expect(minResumeAiRemaining(usage.windows)).toBe(0);
   });
 });
