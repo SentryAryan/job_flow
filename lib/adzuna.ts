@@ -23,12 +23,14 @@ type AdzunaSearchResponse = {
 
 /** Prefer A records so broken Adzuna IPv6 (ENETUNREACH) does not fail Happy Eyeballs. */
 export function preferIpv4DnsOrder(): void {
+  // Node-only — Edge / browsers have no `node:dns`. Startup also sets this via
+  // instrumentation-node.ts; searchAdzunaJobs calls again before fetch.
+  if (typeof process === "undefined") return;
+  if (process.env.NEXT_RUNTIME === "edge") return;
   if (typeof dns.setDefaultResultOrder === "function") {
     dns.setDefaultResultOrder("ipv4first");
   }
 }
-
-preferIpv4DnsOrder();
 
 const COUNTRY_PATTERNS: ReadonlyArray<{
   country: AdzunaCountry;

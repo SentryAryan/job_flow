@@ -34,6 +34,22 @@ describe("checkRateLimits (memory sliding window)", () => {
     expect((await checkRateLimits(store, "b", windows)).allowed).toBe(true);
     expect((await checkRateLimits(store, "a", windows)).allowed).toBe(false);
   });
+
+  it("records multiple hits in one checkRateLimits call via hitN", async () => {
+    const store = new MemorySlidingWindowStore();
+    const windows = [{ name: "1m", windowMs: 60_000, limit: 5 }];
+
+    const result = await checkRateLimits(store, "batch-user", windows, 3);
+    expect(result.allowed).toBe(true);
+    expect(result.remaining).toBe(2);
+
+    const usage = await getRateLimitUsage(store, "batch-user", windows);
+    expect(usage[0]?.used).toBe(3);
+
+    const over = await checkRateLimits(store, "batch-user", windows, 3);
+    expect(over.allowed).toBe(false);
+    expect(over.blockedBy).toBe("1m");
+  });
 });
 
 describe("peek / getRateLimitUsage", () => {

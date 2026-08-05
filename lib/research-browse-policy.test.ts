@@ -90,7 +90,18 @@ describe("shouldSkipSubPageBecauseHomepageRich", () => {
     ).toBe(false);
   });
 
-  it("skips rich homepage when retry budget is unavailable", () => {
+  it("skips rich homepage when a single extract attempt cannot fit", () => {
+    expect(
+      shouldSkipSubPageBecauseHomepageRich({
+        extract: richHome,
+        remainingMs: 60_000 + 180_000 + 90_000 - 1,
+        gotoMs: 60_000,
+        extractMs: 180_000,
+      }),
+    ).toBe(true);
+  });
+
+  it("allows rich homepage when one extract attempt fits (no 2× retry required)", () => {
     expect(
       shouldSkipSubPageBecauseHomepageRich({
         extract: richHome,
@@ -98,16 +109,14 @@ describe("shouldSkipSubPageBecauseHomepageRich", () => {
         gotoMs: 60_000,
         extractMs: 180_000,
       }),
-    ).toBe(true);
-  });
-
-  it("allows rich homepage when retry budget fits", () => {
+    ).toBe(false);
+    // Production footgun: 300s extract + rich homepage with ~12 min left
     expect(
       shouldSkipSubPageBecauseHomepageRich({
         extract: richHome,
-        remainingMs: 60_000 + 360_000 + 90_000,
+        remainingMs: 722_397,
         gotoMs: 60_000,
-        extractMs: 180_000,
+        extractMs: 300_000,
       }),
     ).toBe(false);
   });

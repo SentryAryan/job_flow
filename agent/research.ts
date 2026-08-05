@@ -386,7 +386,7 @@ async function browseCompanyPages(input: {
         remainingMs: remainingAfterHome,
         gotoMs,
         extractMs,
-        includeRetryBudget: true,
+        includeRetryBudget: false,
       })
     ) {
       log.info(
@@ -433,7 +433,7 @@ async function browseCompanyPages(input: {
           remainingMs: remainingBeforeSub,
           gotoMs,
           extractMs,
-          includeRetryBudget: true,
+          includeRetryBudget: false,
         })
       ) {
         log.info(

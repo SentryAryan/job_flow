@@ -44,8 +44,10 @@ export function canAttemptSubPageExtract(options: {
 }
 
 /**
- * Skip sub-page when homepage is already rich AND we cannot afford
- * extract + one retry (prefer finishing synthesis over a doomed second page).
+ * Skip sub-page when homepage is already rich AND remaining time cannot
+ * cover even one extract attempt (prefer finishing synthesis).
+ * Does not require a full retry budget — that was skipping About pages with
+ * minutes of headroom when EXTRACT_TIMEOUT is large (e.g. 300s).
  */
 export function shouldSkipSubPageBecauseHomepageRich(options: {
   extract: HomepageExtract;
@@ -58,7 +60,7 @@ export function shouldSkipSubPageBecauseHomepageRich(options: {
     remainingMs: options.remainingMs,
     gotoMs: options.gotoMs,
     extractMs: options.extractMs,
-    includeRetryBudget: true,
+    includeRetryBudget: false,
   });
 }
 

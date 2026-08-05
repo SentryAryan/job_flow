@@ -227,7 +227,8 @@ export async function enforceResumeAiRateLimit(
 
 /**
  * Record `count` hits against the shared Resume AI pool (e.g. Stagehand
- * extract + completion-check = 2 OpenRouter calls).
+ * extract + completion-check = 2 OpenRouter calls, Research fixed 5).
+ * Uses one Redis transaction per window via `hitN` (not N sequential hits).
  */
 export async function enforceResumeAiRateLimitHits(
   userId: string,
@@ -239,11 +240,29 @@ export async function enforceResumeAiRateLimitHits(
     return { enforced: false };
   }
 
-  let last: ResumeAiRateLimitDecision = { enforced: false };
-  for (let i = 0; i < hits; i += 1) {
-    last = await enforceResumeAiRateLimit(userId, store);
+  if (hits === 1) {
+    return enforceResumeAiRateLimit(userId, store);
   }
-  return last;
+
+  const production = isProductionAppEnv();
+
+  if (!hasRedisUrl()) {
+    requireRedisInProduction();
+    return { enforced: false };
+  }
+
+  const result = await checkRateLimits(
+    store,
+    resumeAiIdentityKey(userId),
+    getResumeAiRateWindows(),
+    hits,
+  );
+
+  if (!production) {
+    return { enforced: false };
+  }
+
+  return { enforced: true, result };
 }
 
 /**
