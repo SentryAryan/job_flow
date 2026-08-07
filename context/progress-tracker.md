@@ -6,9 +6,9 @@ Update this file after every completed feature. Any AI agent reading this should
 
 ## Current Status
 
-**Phase:** Phase 5 — Dashboard
-**Last completed:** 14 Dashboard Page — Full UI
-**Next:** 15 Stats Bar — Real Data
+**Phase:** Phase 5 — Dashboard (complete)
+**Last completed:** App-wide Theme Switcher (Light / Dark / System)
+**Next:** —
 
 ---
 
@@ -48,9 +48,9 @@ Update this file after every completed feature. Any AI agent reading this should
 ### Phase 5 — Dashboard
 
 - [x] 14 Dashboard Page — Full UI
-- [ ] 15 Stats Bar — Real Data
-- [ ] 16 Recent Activity — Real Data
-- [ ] 17 Analytics Charts — PostHog Data
+- [x] 15 Stats Bar — Real Data
+- [x] 16 Recent Activity — Real Data
+- [x] 17 Analytics Charts — PostHog Data
 
 ---
 
@@ -103,6 +103,9 @@ Update this file after every completed feature. Any AI agent reading this should
 - **12 Job Details** — `/find-jobs/[id]` AuthGuard page matching `context/designs/job-details.png`: header (match pill + View Job Post), meta cards, AI match reasoning, skills comparison (green “You have” / purple “Gap skills”), expandable job description, Company Research empty state + stub Research button (Sonner info — Feature 13 wires agent), Apply Now CTA. Data via `GET /api/jobs/[id]` + `fetchJobById` (`lib/jobs.ts`); helpers in `lib/job-detail.ts`. Dossier UI renders when `company_research` is already set. Shared Navbar (avatar), not design’s inline Sign out.
 - **14 Dashboard Page — UI only** — Replaced Feature 02 placeholder with full `/dashboard` matching `context/designs/dashboard.png` + mock data (`lib/mock-dashboard.ts`). Labels follow design / Features 15–17 (Jobs This Week, Company Research Activity) over stale build-plan “Cover Letters” / “Resume Tailoring”. Components under `components/dashboard/` (`StatsBar`, `RecentActivity`, chart cards in `AnalyticsCharts.tsx`). Charts via shadcn `chart` + recharts (`--chart-1` accent area, `--chart-2` info bars, `--chart-3` success bars). Incomplete profile shows existing `CompletionBanner` when `!is_complete`. Stats/activity/charts stay mocked until Features 15–17. AuthGuard + Navbar + `dashboard_viewed`; layout skeleton mirrors stats + mid/bottom rows. Entrance motion via the shared `.jp-reveal` CSS cascade (`app/globals.css` + `revealDelay()` in `lib/motion-tokens.ts`) and tuned Recharts series timing; both degrade under `prefers-reduced-motion`.
 - **09–13 Motion pass** — Extended the `.jp-reveal` cascade to `/find-jobs` and `/find-jobs/[id]` via a shared `Reveal` wrapper (`components/motion/Reveal.tsx`). Find Jobs reveals search → filters → results card once per visit; the reveal sits on the stable results `<section>` so filter / sort / pagination never replay it. Job details cascades all eight sections (steps 0–7). Async arrivals reveal on landing: search success banner, and the research dossier only when a run completes in-session (`justResearched`) so pre-existing research doesn't double-animate. Two defects fixed along the way — the busy dim only had its `transition-opacity` class while busy (restoring snapped back), and `MatchScoreBar` animated `width` (layout per frame across a full page of rows) instead of `scaleX` on `origin-left`.
+- **15–16 Dashboard live data** — `GET /api/dashboard` (Bearer JWT) returns stats + recent activity from InsForge. Stats: COUNT jobs, AVG match_score, COUNT researched, COUNT found_at last 7 days (no WoW trend badges; keep design subtext on researched / this-week). Activity: merge completed `agent_runs` + jobs with `company_research`, sort by time, top 5. Added `jobs.researched_at` (`004_jobs_researched_at.sql`, set on research save; backfill `found_at` for existing dossiers). Helpers in `lib/dashboard.ts`; charts still mocked until Feature 17. In-place skeletons for stats/activity; empty activity copy; Sonner on fetch error.
+- **17 Analytics Charts — PostHog** — Separate `GET /api/dashboard/charts` (Bearer JWT) runs HogQL against PostHog Query API (`POSTHOG_PERSONAL_API_KEY` + `POSTHOG_PROJECT_ID`; host via `getPostHogUiHost()`). Filters `distinct_id = auth.user.id`. Series: `job_found` last 30d daily + matchScore buckets (`50-60%`…`90-100%`); `company_researched` last 7d daily. Zero-fill with `M/D` labels; missing Query credentials → empty zero series (200). Empty chart copy; dynamic Y domain; `ChartCardSkeleton` while loading. Helpers in `lib/dashboard-charts.ts` / `lib/posthog-query.ts`. Capture parity: `userId` on `company_researched`.
+- **Theme switcher (app-wide)** — `next-themes` with `class` on `<html>`, `defaultTheme=system`, `storageKey=jobpilot-theme`. Dark palette redefines `--jp-*` under `.dark` (brand purple kept). `ThemeSwitcher` in shared Navbar (Light / Dark / System). CTA hover uses `bg-cta-hover` token. Sonner toaster follows `resolvedTheme`. Future pages inherit via tokens; import `ThemeSwitcher` only if a page lacks Navbar.
 
 ---
 

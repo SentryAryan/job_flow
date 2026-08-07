@@ -140,6 +140,7 @@ describe("mapDbRowToJob", () => {
     expect(job.matched_skills).toEqual(["Node.js", "AWS"]);
     expect(job.missing_skills).toEqual(["Java (Spring Boot)"]);
     expect(job.company_research).toBeNull();
+    expect(job.researched_at).toBeNull();
   });
 
   it("defaults invalid source and null skills", () => {

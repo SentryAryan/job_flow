@@ -15,7 +15,7 @@ export default function CtaButtons({ align = "start" }: CtaButtonsProps) {
       }`}
     >
       <AuthAwareCta
-        className="inline-flex items-center justify-center gap-2 rounded-md bg-overlay-dark px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-black"
+        className="inline-flex items-center justify-center gap-2 rounded-md bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition-colors hover:bg-cta-hover"
         hrefWhenGuest="/login"
         hrefWhenAuthed="/find-jobs"
         onClick={() => captureEvent("cta_clicked", { label: "get_started" })}
@@ -32,7 +32,7 @@ export default function CtaButtons({ align = "start" }: CtaButtonsProps) {
         </svg>
       </AuthAwareCta>
       <AuthAwareCta
-        className="inline-flex items-center justify-center rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-surface-secondary"
+        className="inline-flex items-center justify-center rounded-md border border-border-light bg-accent-muted px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-accent-light"
         hrefWhenGuest="/login"
         hrefWhenAuthed="/find-jobs"
         onClick={() =>

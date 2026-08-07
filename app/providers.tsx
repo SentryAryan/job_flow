@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 
 import { AuthProvider } from "@/components/auth/AuthProvider";
+import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { Toaster } from "@/components/ui/toaster";
 
 type Props = {
@@ -11,9 +12,11 @@ type Props = {
 
 export function Providers({ children }: Props) {
   return (
-    <AuthProvider>
-      {children}
-      <Toaster />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        {children}
+        <Toaster />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

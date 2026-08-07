@@ -1,46 +1,36 @@
 /**
- * Mock dashboard data for Feature 14 UI.
- * Features 15–17 swap these props with live InsForge / PostHog sources.
+ * Mock dashboard data retained for Feature 14 snapshot tests.
+ * Live stats/activity: lib/dashboard.ts. Live charts: lib/dashboard-charts.ts.
  */
 
-export type DashboardActivityType = "job_found" | "company_researched";
+export type {
+  DashboardActivityItem,
+  DashboardActivityType,
+  DashboardStat,
+  DashboardStats,
+  DashboardTrend,
+} from "@/lib/dashboard";
 
-export type DashboardTrend = {
-  /** Signed delta vs prior period (positive = up, negative = down). */
-  percent: number;
-  label: string;
-};
+export {
+  activityDotClasses,
+  formatStatValue,
+  formatTrendPercent,
+  trendBadgeClasses,
+} from "@/lib/dashboard";
 
-export type DashboardStat = {
-  value: number;
-  format?: "number" | "percent";
-  trend?: DashboardTrend;
-  subtext?: string;
-};
+export type {
+  DaySeriesPoint,
+  MatchBucketPoint,
+} from "@/lib/dashboard-charts";
 
-export type DashboardStats = {
-  totalJobsFound: DashboardStat;
-  avgMatchRate: DashboardStat;
-  companiesResearched: DashboardStat;
-  jobsThisWeek: DashboardStat;
-};
-
-export type DashboardActivityItem = {
-  id: string;
-  type: DashboardActivityType;
-  message: string;
-  timeAgo: string;
-};
-
-export type DaySeriesPoint = {
-  day: string;
-  count: number;
-};
-
-export type MatchBucketPoint = {
-  range: string;
-  count: number;
-};
+import type {
+  DashboardActivityItem,
+  DashboardStats,
+} from "@/lib/dashboard";
+import type {
+  DaySeriesPoint,
+  MatchBucketPoint,
+} from "@/lib/dashboard-charts";
 
 export const MOCK_DASHBOARD_STATS: DashboardStats = {
   totalJobsFound: {
@@ -128,44 +118,3 @@ export const MOCK_MATCH_DISTRIBUTION: MatchBucketPoint[] = [
   { range: "80-90%", count: 85 },
   { range: "90-100%", count: 42 },
 ];
-
-export function activityDotClasses(type: DashboardActivityType): {
-  ring: string;
-  dot: string;
-} {
-  switch (type) {
-    case "job_found":
-      return { ring: "bg-success-light", dot: "bg-success-alt" };
-    case "company_researched":
-      return { ring: "bg-info-light", dot: "bg-info" };
-    default: {
-      const _exhaustive: never = type;
-      return _exhaustive;
-    }
-  }
-}
-
-export function formatStatValue(
-  value: number,
-  format: "number" | "percent" = "number",
-): string {
-  if (format === "percent") {
-    return `${value}%`;
-  }
-  return String(value);
-}
-
-/** Renders signed trend text (e.g. +12%, -3%, 0%). */
-export function formatTrendPercent(percent: number): string {
-  if (percent > 0) {
-    return `+${percent}%`;
-  }
-  return `${percent}%`;
-}
-
-export function trendBadgeClasses(percent: number): string {
-  if (percent < 0) {
-    return "bg-error/10 text-error";
-  }
-  return "bg-success-lightest text-success-darker";
-}

@@ -47,6 +47,7 @@ export type JobDbRow = {
   matched_skills?: string[] | null;
   missing_skills?: string[] | null;
   company_research?: unknown;
+  researched_at?: string | null;
   found_at: string;
 };
 
@@ -193,6 +194,7 @@ export function mapDbRowToJob(row: JobDbRow): Job {
     matched_skills: asStringArray(row.matched_skills),
     missing_skills: asStringArray(row.missing_skills),
     company_research: parseCompanyResearch(row.company_research),
+    researched_at: row.researched_at ?? null,
     found_at: row.found_at,
   };
 }

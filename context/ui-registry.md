@@ -58,18 +58,27 @@ Brand mark + wordmark, used in Navbar and Footer.
 Reusable pair of marketing CTAs ("Get Started" + "Find Your First Match"). Props: `align?: "start" | "center"`. Both use `AuthAwareCta` (Feature 02): `/dashboard` when signed in, else `/login`.
 
 - Container: `flex flex-col gap-3 sm:flex-row` (+ `sm:justify-center` when centered)
-- Primary (dark, per design): `inline-flex items-center justify-center gap-2 rounded-md bg-overlay-dark px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-black` + solid play-triangle SVG (`M8 5v14l11-7z`, 11px, `fill=currentColor`). NOTE: use solid-color hover, never `hover:opacity-*` on dark buttons over a gradient (the gradient bleeds through and looks purplish).
-- Secondary: `inline-flex items-center justify-center rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-surface-secondary`
+- Primary (dark, per design): `inline-flex items-center justify-center gap-2 rounded-md bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition-colors hover:bg-cta-hover` + solid play-triangle SVG (`M8 5v14l11-7z`, 11px, `fill=currentColor`). NOTE: use solid-color hover (`bg-cta-hover`), never `hover:opacity-*` on dark buttons over a gradient (the gradient bleeds through and looks purplish). In dark mode CTAs use brand purple (`--jp-cta`) for contrast.
+- Secondary: `inline-flex items-center justify-center rounded-md border border-border-light bg-accent-muted px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-accent-light`
 
 ### Navbar — `components/layout/Navbar.tsx`
 
 Shared chrome for marketing and authenticated pages (home, login, profile, find-jobs, dashboard). `AppNavbar` re-exports this module.
 
-- Header: `w-full border-b border-border bg-surface`
-- Inner: `mx-auto flex h-16 max-w-6xl items-center justify-between px-6` — Logo | nav | CTA
+- Header: `w-full border-b border-border bg-background`
+- Inner: `mx-auto flex h-16 max-w-6xl items-center justify-between px-6` — Logo | nav | `ThemeSwitcher` + CTA
 - Logo links to `/` (homepage always reachable)
 - Nav links: lucide icons (`LayoutGrid` / `Search` / `User`) + label; active `border-accent text-accent` underline; inactive `text-text-dark`
+- Trailing: always-visible `ThemeSwitcher` then CTA
 - CTA: signed out → dark **Get Started** → `/login`; signed in → shadcn `Avatar` + `DropdownMenu` (`NavbarCta`) with name/email, Profile link, Sign out (`user_signed_out` + analytics reset + redirect `/`). Auth-loading CTA uses `Skeleton` (rounded). Menu opens on hover; click pins it open until outside click / second click. Timers cleared on unmount.
+
+### ThemeProvider — `components/theme/ThemeProvider.tsx`
+
+Wraps `next-themes` (`attribute="class"`, `defaultTheme="system"`, `storageKey="jobpilot-theme"`). Mounted in `app/providers.tsx` outside `AuthProvider`. Root `<html>` uses `suppressHydrationWarning`.
+
+### ThemeSwitcher — `components/theme/ThemeSwitcher.tsx`
+
+Compact ghost icon button (Sun/Moon by resolved theme) + dropdown radio: Light / Dark / System. Uses `hooks/use-theme.ts`. Mounted in shared Navbar; reusable on any future page.
 
 ### AuthGuard — `components/auth/AuthGuard.tsx`
 
@@ -218,10 +227,11 @@ Avatar dropdown embeds compact **AI usage** (shared Extract / Generate / Find Jo
 
 ### Dashboard page — `app/dashboard/page.tsx`
 
-Client page wrapped in `AuthGuard` with `DashboardPageSkeleton` fallback. Mock stats/activity/charts (Feature 14); incomplete profile banner via `fetchProfile` + `CompletionBanner`. Composes `Navbar` + `StatsBar` + mid row (activity | research chart) + bottom row (jobs area | match bars).
+Client page wrapped in `AuthGuard` with `DashboardPageSkeleton` fallback. Live stats/activity via `fetchDashboardSummary` → `GET /api/dashboard` (Features 15–16); live charts via `fetchDashboardCharts` → `GET /api/dashboard/charts` (Feature 17 PostHog HogQL). Incomplete profile banner via `fetchProfile` + `CompletionBanner`. Composes `Navbar` + `StatsBar` (or `StatsBarSkeleton`) + mid row (activity | research chart) + bottom row (jobs area | match bars). Chart loading uses `ChartCardSkeleton`; chart errors toast + empty zero series.
 
 - Shell: `min-h-screen bg-background`
 - Main: `mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8 sm:px-8`
+- Dashboard fetch errors: Sonner toast + zero stats / empty activity
 
 Entrance cascade via `revealDelayMs` props (stats 0 → activity 100 → research 140 → jobs 180 → match 220). The async completion banner is wrapped in `.jp-reveal` so it fades in instead of popping when the profile fetch resolves.
 
@@ -240,25 +250,31 @@ Wrapper applying `.jp-reveal` with a delay. `<Reveal step={n}>` spaces items by 
 
 ### StatsBar — `components/dashboard/StatsBar.tsx`
 
-Four equal cards: Total Jobs Found, Avg. Match Rate, Companies Researched, Jobs This Week. Props: `stats: DashboardStats`, `revealDelayMs?`. Trend chips use `Badge` + `bg-success-lightest text-success-darker`; researched / this-week use gray subtext.
+Four equal cards: Total Jobs Found, Avg. Match Rate, Companies Researched, Jobs This Week. Props: `stats: DashboardStats` (from `lib/dashboard.ts`), `revealDelayMs?`. Live Feature 15 data omits WoW `trend` badges; researched / this-week use gray subtext. Optional trend chips still supported for mocks.
 
 - Grid: `grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4`
 - Card: `Card size="sm"` + `bg-surface shadow-none`; value `text-3xl font-bold text-text-primary`
 - Cards reveal left-to-right, `REVEAL_STAGGER_MS` apart
+- Loading: `StatsBarSkeleton`
 
 ### RecentActivity — `components/dashboard/RecentActivity.tsx`
 
-Vertical feed of typed activity items. Dots: `job_found` → `bg-success-light` / `bg-success-alt`; `company_researched` → `bg-info-light` / `bg-info` (via `activityDotClasses`).
+Vertical feed of typed activity items (top 5 from `GET /api/dashboard`). Dots: `job_found` → `bg-success-light` / `bg-success-alt`; `company_researched` → `bg-info-light` / `bg-info` (via `activityDotClasses`). Empty state: “No activity yet. Find jobs or research a company to get started.”
 
 - Card title `text-base font-semibold`; list `gap-5`; message `text-sm font-medium`; time `text-xs text-text-muted`
 - Items trail the card by 60ms and stagger 30ms, capped at 6 steps so long feeds never feel slow
+- Loading: `RecentActivitySkeleton`
 
 ### AnalyticsCharts — `components/dashboard/AnalyticsCharts.tsx`
 
-Exports `CompanyResearchChart` (info `BarChart`), `JobsFoundOverTimeChart` (accent `AreaChart` monotone + gradient), and `MatchScoreDistributionChart` (success `BarChart`). Grid lines dashed `stroke-border`; axis ticks `text-text-muted` 12px. Chart height `h-[220px]` on `ChartContainer`.
+Exports `CompanyResearchChart` (info `BarChart`), `JobsFoundOverTimeChart` (accent `AreaChart` monotone + gradient), and `MatchScoreDistributionChart` (success `BarChart`). Live series from PostHog (`DaySeriesPoint` / `MatchBucketPoint` via `lib/dashboard-charts.ts`). Empty states: “No research yet.” / “No jobs found yet.” / “No match scores yet.” Y domain `0…max(4, maxCount)`; 30-day X axis uses `interval="preserveStartEnd"` + `minTickGap`. Grid lines dashed `stroke-border`; axis ticks `text-text-muted` 12px. Chart height `h-[220px]` on `ChartContainer`.
 
 - Series draw-in via `useSeriesAnimation`: 600ms `ease-out` (Recharts' 1500ms default reads as sluggish), beginning 120ms after the card so card and data feel like one motion
 - `isAnimationActive` is off under `prefers-reduced-motion`
+
+### ChartCardSkeleton — `components/dashboard/ChartCardSkeleton.tsx`
+
+In-place loading stand-in for a chart card (`title` skeleton + `h-[220px]` plot). Used while `fetchDashboardCharts` is pending.
 
 ### DashboardPageSkeleton — `components/layout/DashboardPageSkeleton.tsx`
 

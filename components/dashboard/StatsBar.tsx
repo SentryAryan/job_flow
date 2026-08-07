@@ -6,7 +6,7 @@ import {
     trendBadgeClasses,
     type DashboardStat,
     type DashboardStats,
-} from "@/lib/mock-dashboard";
+} from "@/lib/dashboard";
 import { REVEAL_STAGGER_MS, revealDelay } from "@/lib/motion-tokens";
 import { cn } from "@/lib/utils";
 

@@ -3,6 +3,8 @@
 import type { ReactNode } from "react";
 import { Toaster as SonnerToaster } from "sonner";
 
+import { useTheme } from "@/hooks/use-theme";
+
 function IconCircle({
   className,
   children,
@@ -84,10 +86,16 @@ function InfoIcon() {
 
 /** App-wide toast host — token-styled via Sonner `classNames` (unstyled base). */
 export function Toaster() {
+  const { resolvedTheme } = useTheme();
+  const theme =
+    resolvedTheme === "dark" || resolvedTheme === "light"
+      ? resolvedTheme
+      : "system";
+
   return (
     <SonnerToaster
       position="bottom-right"
-      theme="light"
+      theme={theme}
       closeButton
       duration={3500}
       icons={{

@@ -69,12 +69,18 @@
 
   --jp-overlay: #111827;
   --jp-overlay-dark: #131316;
+  /* Marketing / navbar “dark” CTAs — solid fill, never opacity hover */
+  --jp-cta: #131316;
+  --jp-cta-foreground: #ffffff;
+  --jp-cta-hover: #000000;
 
   --jp-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
 
   /* Motion — strong ease-out; built-in CSS easings are too weak to read as intentional */
   --jp-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --jp-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+
+  color-scheme: light;
 
   /* shadcn semantic → JobPilot */
   --background: var(--jp-background);
@@ -97,6 +103,113 @@
   --input: var(--jp-border);
   --ring: var(--jp-accent);
   --radius: 0.5rem;
+
+  --chart-1: var(--jp-accent);
+  --chart-2: var(--jp-info);
+  --chart-3: var(--jp-success);
+  --chart-4: var(--jp-warning);
+  --chart-5: var(--jp-text-secondary);
+
+  --sidebar: var(--jp-surface);
+  --sidebar-foreground: var(--jp-text-primary);
+  --sidebar-primary: var(--jp-accent);
+  --sidebar-primary-foreground: var(--jp-accent-foreground);
+  --sidebar-accent: var(--jp-accent-light);
+  --sidebar-accent-foreground: var(--jp-accent);
+  --sidebar-border: var(--jp-border);
+  --sidebar-ring: var(--jp-accent);
+}
+
+/*
+  Dark palette — derived JobPilot tokens (no separate design PNG).
+  @theme --color-* already reference var(--jp-*), so utilities flip with .dark.
+*/
+.dark {
+  /* Unified canvas — gutters, navbar, and column share one mild base */
+  --jp-background: #1a1d26;
+  --jp-surface: #1a1d26;
+  --jp-surface-secondary: #232836;
+  --jp-surface-tertiary: #2b3140;
+  --jp-surface-muted: #1f232e;
+
+  --jp-border: #2c3342;
+  --jp-border-light: #343b4c;
+  --jp-border-muted: #3c4458;
+
+  --jp-text-primary: #f3f4f6;
+  --jp-text-secondary: #a1a8b5;
+  --jp-text-muted: #7b8494;
+  --jp-text-dark: #d1d5db;
+  --jp-text-darker: #e5e7eb;
+  --jp-text-darkest: #f9fafb;
+  --jp-text-black: #f3f4f6;
+  --jp-text-slate: #e5e7eb;
+  --jp-text-slate-medium: #a1a8b5;
+
+  --jp-accent: #7c5cfc;
+  --jp-accent-dark: #8b74ff;
+  /* Soft glows for hero/CTA panels — stay close to surface luminance */
+  --jp-accent-light: #252040;
+  --jp-accent-muted: #1f1c32;
+  --jp-accent-foreground: #ffffff;
+
+  --jp-success: #34d399;
+  --jp-success-alt: #34d399;
+  --jp-success-dark: #6ee7b7;
+  --jp-success-darker: #a7f3d0;
+  --jp-success-light: #064e3b;
+  --jp-success-lightest: #022c22;
+  --jp-success-foreground: #a7f3d0;
+
+  --jp-info: #60a5fa;
+  --jp-info-dark: #93c5fd;
+  --jp-info-medium: #3b82f6;
+  --jp-info-light: #1c2838;
+  --jp-info-lightest: #151c28;
+  --jp-info-foreground: #93c5fd;
+  --jp-info-muted: #64748b;
+
+  --jp-warning: #fb923c;
+  --jp-warning-foreground: #111827;
+
+  --jp-error: #f87171;
+  --jp-error-dark: #ef4444;
+  --jp-error-foreground: #ffffff;
+
+  --jp-linkedin: #0a66c2;
+  --jp-linkedin-light: #1a2f45;
+  --jp-linkedin-foreground: #ffffff;
+
+  /* Overlays stay dark (modals, agent terminal mock) */
+  --jp-overlay: #0a0b0f;
+  --jp-overlay-dark: #0a0b0f;
+  /* Brand-forward CTAs in dark (avoid harsh white-on-black) */
+  --jp-cta: #7c5cfc;
+  --jp-cta-foreground: #ffffff;
+  --jp-cta-hover: #8b74ff;
+
+  --jp-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.35), 0 1px 2px -1px rgba(0, 0, 0, 0.3);
+
+  color-scheme: dark;
+
+  --background: var(--jp-background);
+  --foreground: var(--jp-text-primary);
+  --card: var(--jp-surface);
+  --card-foreground: var(--jp-text-primary);
+  --popover: var(--jp-surface);
+  --popover-foreground: var(--jp-text-primary);
+  --primary: var(--jp-accent);
+  --primary-foreground: var(--jp-accent-foreground);
+  --secondary: var(--jp-surface-secondary);
+  --secondary-foreground: var(--jp-text-primary);
+  --muted: var(--jp-surface-tertiary);
+  --muted-foreground: var(--jp-text-secondary);
+  --accent: var(--jp-accent-light);
+  --accent-foreground: var(--jp-accent);
+  --destructive: var(--jp-error);
+  --border: var(--jp-border);
+  --input: var(--jp-border);
+  --ring: var(--jp-accent);
 
   --chart-1: var(--jp-accent);
   --chart-2: var(--jp-info);
@@ -173,6 +286,9 @@
 
   --color-overlay: var(--jp-overlay);
   --color-overlay-dark: var(--jp-overlay-dark);
+  --color-cta: var(--jp-cta);
+  --color-cta-foreground: var(--jp-cta-foreground);
+  --color-cta-hover: var(--jp-cta-hover);
 
   --radius-sm: 4px;
   --radius-md: 8px;

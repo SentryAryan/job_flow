@@ -147,7 +147,7 @@ export function NavbarCta() {
     return (
       <Link
         href="/login"
-        className="inline-flex cursor-pointer items-center rounded-md bg-overlay-dark px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-black"
+        className="inline-flex cursor-pointer items-center rounded-md bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition-colors hover:bg-cta-hover"
         onClick={() => captureEvent("navbar_cta_clicked")}
       >
         Get Started

@@ -17,6 +17,7 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { useUser } from "@/components/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { MultiStepProgress } from "@/components/ui/multi-step-progress";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -220,6 +221,7 @@ export function CompanyResearchCard({
   research,
   onResearched,
 }: CompanyResearchCardProps) {
+  const { user } = useUser();
   const companyLabel = displayCompany(company);
   const [pending, setPending] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
@@ -264,6 +266,7 @@ export function CompanyResearchCard({
       setLocalResearch(result.data.research);
       onResearched?.(result.data.research);
       captureEvent("company_researched", {
+        userId: user?.id,
         jobId,
         company: company ?? undefined,
       });

@@ -9,7 +9,7 @@ const FOOTER_LINKS = [
 
 export default function Footer() {
   return (
-    <footer className="w-full border-t border-border bg-surface">
+    <footer className="w-full border-t border-border bg-background">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 sm:flex-row">
         <Logo />
 

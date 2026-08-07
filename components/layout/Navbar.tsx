@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 
 import Logo from "@/components/layout/Logo";
 import { NavbarCta } from "@/components/layout/NavbarCta";
+import { ThemeSwitcher } from "@/components/theme/ThemeSwitcher";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS: ReadonlyArray<{
@@ -22,7 +23,7 @@ export default function Navbar() {
   const pathname = usePathname();
 
   return (
-    <header className="w-full border-b border-border bg-surface">
+    <header className="w-full border-b border-border bg-background">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
         <Logo href="/" />
 
@@ -50,7 +51,10 @@ export default function Navbar() {
           })}
         </nav>
 
-        <NavbarCta />
+        <div className="flex items-center gap-2 sm:gap-3">
+          <ThemeSwitcher />
+          <NavbarCta />
+        </div>
       </div>
     </header>
   );

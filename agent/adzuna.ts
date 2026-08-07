@@ -211,6 +211,7 @@ function buildJobInsertRow(input: {
     matched_skills: input.score.matchedSkills,
     missing_skills: input.score.missingSkills,
     company_research: null,
+    researched_at: null as string | null,
     found_at: new Date().toISOString(),
   };
 }

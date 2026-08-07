@@ -30,6 +30,7 @@ const JOB_DETAIL_COLUMNS = [
   "matched_skills",
   "missing_skills",
   "company_research",
+  "researched_at",
   "found_at",
 ].join(", ");
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useUser } from "@/components/auth/AuthProvider";
@@ -9,19 +10,26 @@ import {
     JobsFoundOverTimeChart,
     MatchScoreDistributionChart,
 } from "@/components/dashboard/AnalyticsCharts";
+import { ChartCardSkeleton } from "@/components/dashboard/ChartCardSkeleton";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
+import { RecentActivitySkeleton } from "@/components/dashboard/RecentActivitySkeleton";
 import { StatsBar } from "@/components/dashboard/StatsBar";
+import { StatsBarSkeleton } from "@/components/dashboard/StatsBarSkeleton";
 import { DashboardPageSkeleton } from "@/components/layout/DashboardPageSkeleton";
 import Navbar from "@/components/layout/Navbar";
 import { CompletionBanner } from "@/components/profile/CompletionBanner";
 import { captureEvent } from "@/lib/analytics";
 import {
-    MOCK_DASHBOARD_ACTIVITY,
-    MOCK_DASHBOARD_STATS,
-    MOCK_JOBS_OVER_TIME,
-    MOCK_MATCH_DISTRIBUTION,
-    MOCK_RESEARCH_ACTIVITY,
-} from "@/lib/mock-dashboard";
+    EMPTY_DASHBOARD_STATS,
+    fetchDashboardSummary,
+    type DashboardActivityItem,
+    type DashboardStats,
+} from "@/lib/dashboard";
+import {
+    emptyDashboardCharts,
+    fetchDashboardCharts,
+    type DashboardChartsData,
+} from "@/lib/dashboard-charts";
 import { fetchProfile } from "@/lib/profile";
 import { getProfileCompletion } from "@/lib/profile-completion";
 import type { Profile } from "@/types";
@@ -29,6 +37,13 @@ import type { Profile } from "@/types";
 function DashboardContent() {
   const { user } = useUser();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [stats, setStats] = useState<DashboardStats>(EMPTY_DASHBOARD_STATS);
+  const [activity, setActivity] = useState<DashboardActivityItem[]>([]);
+  const [charts, setCharts] = useState<DashboardChartsData>(() =>
+    emptyDashboardCharts(),
+  );
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [chartsLoading, setChartsLoading] = useState(true);
 
   useEffect(() => {
     captureEvent("dashboard_viewed");
@@ -43,6 +58,52 @@ function DashboardContent() {
       if (result.success) {
         setProfile(result.data);
       }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    let active = true;
+    setDashboardLoading(true);
+
+    void fetchDashboardSummary().then((result) => {
+      if (!active) return;
+      setDashboardLoading(false);
+      if (result.success) {
+        setStats(result.data.stats);
+        setActivity(result.data.activity);
+        return;
+      }
+      setStats(EMPTY_DASHBOARD_STATS);
+      setActivity([]);
+      toast.error(result.error);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    let active = true;
+    setChartsLoading(true);
+
+    void fetchDashboardCharts().then((result) => {
+      if (!active) return;
+      setChartsLoading(false);
+      if (result.success) {
+        setCharts(result.data);
+        return;
+      }
+      setCharts(emptyDashboardCharts());
+      toast.error(result.error);
     });
 
     return () => {
@@ -75,32 +136,53 @@ function DashboardContent() {
           </div>
         ) : null}
 
-        <StatsBar stats={MOCK_DASHBOARD_STATS} />
+        {dashboardLoading ? (
+          <StatsBarSkeleton />
+        ) : (
+          <StatsBar stats={stats} />
+        )}
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
           <div className="lg:col-span-2">
-            <RecentActivity
-              items={MOCK_DASHBOARD_ACTIVITY}
-              revealDelayMs={100}
-            />
+            {dashboardLoading ? (
+              <RecentActivitySkeleton revealDelayMs={100} />
+            ) : (
+              <RecentActivity items={activity} revealDelayMs={100} />
+            )}
           </div>
           <div className="lg:col-span-3">
-            <CompanyResearchChart
-              data={MOCK_RESEARCH_ACTIVITY}
-              revealDelayMs={140}
-            />
+            {chartsLoading ? (
+              <ChartCardSkeleton
+                revealDelayMs={140}
+                titleWidthClass="w-52"
+              />
+            ) : (
+              <CompanyResearchChart
+                data={charts.researchActivity}
+                revealDelayMs={140}
+              />
+            )}
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <JobsFoundOverTimeChart
-            data={MOCK_JOBS_OVER_TIME}
-            revealDelayMs={180}
-          />
-          <MatchScoreDistributionChart
-            data={MOCK_MATCH_DISTRIBUTION}
-            revealDelayMs={220}
-          />
+          {chartsLoading ? (
+            <>
+              <ChartCardSkeleton revealDelayMs={180} />
+              <ChartCardSkeleton revealDelayMs={220} />
+            </>
+          ) : (
+            <>
+              <JobsFoundOverTimeChart
+                data={charts.jobsOverTime}
+                revealDelayMs={180}
+              />
+              <MatchScoreDistributionChart
+                data={charts.matchDistribution}
+                revealDelayMs={220}
+              />
+            </>
+          )}
         </div>
       </main>
     </div>

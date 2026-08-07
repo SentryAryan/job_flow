@@ -100,9 +100,12 @@ className="bg-purple-500 text-gray-600"
   --color-linkedin-light: #dce6f1;
   --color-linkedin-foreground: #ffffff;
 
-  /* Dark overlays */
+  /* Dark overlays / marketing CTAs */
   --color-overlay: #111827;
   --color-overlay-dark: #131316;
+  --color-cta: #131316;
+  --color-cta-foreground: #ffffff;
+  --color-cta-hover: #000000;
 
   /* Border radius */
   --radius-sm: 4px;
@@ -112,6 +115,12 @@ className="bg-purple-500 text-gray-600"
   --radius-full: 9999px;
 }
 ```
+
+### Dark mode (`.dark`)
+
+When `html` has class `dark` (via next-themes), redefine the same `--jp-*` variables in `app/globals.css`. Product utilities (`bg-surface`, `text-text-primary`, …) flip automatically because `@theme` maps `--color-*` → `var(--jp-*)`. Brand purple stays `#7c5cfc`; surfaces invert with a **mild page canvas** close to card surfaces (avoids a harsh gutter frame). Semantic light fills become dark tinted chips.
+
+Marketing CTAs use dedicated tokens (`bg-cta` / `text-cta-foreground` / `hover:bg-cta-hover`): dark fill + light text in light mode; brand purple fill + white text in dark mode (avoids harsh white-on-black). Overlays (`bg-overlay-dark`) stay dark for modals and the agent-terminal mock. Page canvas (`--jp-background`) sits close to `--jp-surface` so side gutters feel continuous.
 
 Tailwind v4 generates utility classes automatically from every `--color-*` token above:
 

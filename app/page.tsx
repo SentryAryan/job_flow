@@ -13,9 +13,9 @@ export default function HomePage() {
     <>
       <Navbar />
       <main className="flex-1">
-        <div className="mx-auto max-w-6xl border-x border-border bg-surface">
+        <div className="mx-auto max-w-6xl border-x border-border bg-background">
           <Hero />
-          <section className="border-t border-border bg-surface-muted px-6 py-14 sm:px-10">
+          <section className="border-t border-border bg-surface-muted px-6 py-14 sm:px-10 dark:bg-background">
             <DashboardPreview />
           </section>
           <Features />

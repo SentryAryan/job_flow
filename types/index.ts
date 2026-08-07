@@ -91,6 +91,7 @@ export type Job = {
   matched_skills: string[];
   missing_skills: string[];
   company_research: CompanyResearch | null;
+  researched_at: string | null;
   found_at: string;
 };
 

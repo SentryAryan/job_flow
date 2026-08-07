@@ -748,7 +748,10 @@ export async function researchCompany(
 
   const { error: updateError } = await options.client.database
     .from("jobs")
-    .update({ company_research: research })
+    .update({
+      company_research: research,
+      researched_at: new Date().toISOString(),
+    })
     .eq("id", options.jobId)
     .eq("user_id", options.userId);
 

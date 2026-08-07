@@ -22,8 +22,9 @@ The `--font-sans` variable is already declared in `@theme` in globals.css. Apply
 - Page max-width: 1440px, centered
 - Main content area padding: 32px on all sides
 - Gap between page sections: 24px
-- Header height: 64px, full width, white background, padding 0 24px
+- Header height: 64px, full width, `bg-surface` (token — light or dark), padding 0 24px
 - All pages use top navbar only — no sidebar, no drawer
+- Theme (Light / Dark / System) is global via `next-themes` + `.dark` `--jp-*` overrides; prefer token utilities so new pages inherit theme without extra work
 
 ---
 
@@ -31,10 +32,10 @@ The `--font-sans` variable is already declared in `@theme` in globals.css. Apply
 
 Three nav items: Dashboard, Find Jobs, Profile.
 
-- Active item: `color: #7C5CFC`, font-weight 500, 14px
-- Inactive item: `color: #4A5565`, font-weight 500, 14px
-- No underline — active state is color change only
-- Navbar always white background, full viewport width
+- Active item: `text-accent`, font-weight 500, 14px
+- Inactive item: `text-text-dark`, font-weight 500, 14px
+- Theme switcher sits before the CTA (always visible)
+- Navbar uses `bg-surface` / `border-border` (not hardcoded white)
 
 ---
 
@@ -43,14 +44,14 @@ Three nav items: Dashboard, Find Jobs, Profile.
 Every content section lives in a card.
 
 ```
-background: #FFFFFF
-border: 1px solid #E7EAF3
+background: token bg-surface
+border: 1px solid token border-border
 border-radius: 16px
 padding: 24px
-box-shadow: 0px 1px 3px rgba(0,0,0,0.1), 0px 1px 2px -1px rgba(0,0,0,0.1)
+box-shadow: token shadow-card
 ```
 
-Never use colored card backgrounds — always white. Color goes inside cards via badges, bars, and text, never on the card surface itself.
+Never use colored card backgrounds — always `bg-surface`. Color goes inside cards via badges, bars, and text, never on the card surface itself.
 
 ---
 
