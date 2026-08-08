@@ -17,7 +17,6 @@ import { ResearchLlmMeter } from "@/lib/research-llm-meter";
 import {
     RESEARCH_MAX_OPENROUTER_CALLS,
     RESEARCH_USAGE_HITS,
-    researchRouteMaxDurationSec,
 } from "@/lib/research-timeouts";
 import {
     canUseResumeAiQuota,
@@ -30,11 +29,12 @@ import {
 
 export const runtime = "nodejs";
 /**
- * Vercel Hobby requires ≤300. Driven by RESEARCH_TIMEOUT_CLAMP /
- * NEXT_PUBLIC_RESEARCH_TIMEOUT_CLAMP (`clamp` default → 300; `no_clamp` → 800
- * or RESEARCH_ROUTE_MAX_DURATION_SEC). Do not use no_clamp on Vercel Hobby.
+ * Must be a numeric literal (Next.js static analysis). Hobby plan max is 300.
+ * Runtime budgets still follow RESEARCH_TIMEOUT_CLAMP via lib/research-timeouts.ts.
+ * Self-host / Pro longer runs: keep `clamp=no_clamp` for app budgets; raise this
+ * literal only on plans that allow it (e.g. Pro → 800). Do not use a function call.
  */
-export const maxDuration = researchRouteMaxDurationSec();
+export const maxDuration = 300;
 
 const bodySchema = z.object({
   jobId: z.string().trim().uuid("Invalid job id"),

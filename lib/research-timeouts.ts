@@ -56,9 +56,10 @@ export function isResearchTimeoutClampEnabled(): boolean {
 }
 
 /**
- * Route `maxDuration` (seconds) for `POST /api/agent/research`.
+ * Route `maxDuration` for `POST /api/agent/research` must stay a **numeric literal**
+ * in the route file (Next.js static analysis). This helper only drives runtime
+ * budget caps (overall / Browserbase / client).
  * Clamp mode → 300 (Hobby). no_clamp → `RESEARCH_ROUTE_MAX_DURATION_SEC` or 800.
- * Do not set no_clamp on Vercel Hobby — the build rejects maxDuration > 300.
  */
 export function researchRouteMaxDurationSec(): number {
   if (isResearchTimeoutClampEnabled()) {

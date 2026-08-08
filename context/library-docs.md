@@ -577,7 +577,7 @@ const { object } = await withOpenRouterKeyFailover((model) =>
 
 **Company Research agent:**
 
-- `POST /api/agent/research` `{ jobId }` — `agent/research.ts` + Browserbase/Stagehand + OpenRouter synthesis (`maxDuration` from clamp mode: Hobby **300** / `no_clamp` **800**)
+- `POST /api/agent/research` `{ jobId }` — `agent/research.ts` + Browserbase/Stagehand + OpenRouter synthesis (`maxDuration` **literal 300** for Next/Hobby; runtime budgets follow `RESEARCH_TIMEOUT_CLAMP`)
 - After `goto`, skip LLM extract on unusable pages (Chrome SSL, Access Denied / bot walls, **auth-wall titles** like `Sign In / Register`, denylisted `/login|/account|/cart|…` via `agent/research-nav.ts`). Ambient “Sign in” in retailer nav chrome does **not** skip extract
 - Prefer About/Careers/Team/Engineering/Blog; **max 1** sub-page; hard-cap OpenRouter at 5; fixed Redis charge of 5 when admitted
 - Sub-page: retry once on extract timeout; skip when remaining overall budget is tight; skip rich homepage + tight retry budget (`lib/research-browse-policy.ts`)
