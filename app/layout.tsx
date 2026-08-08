@@ -9,9 +9,9 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "JobPilot — Your AI job search copilot",
+  title: "Job Flow — Your AI job search copilot",
   description:
-    "JobPilot scores every job against your profile and researches companies for you, so you spend less time searching and more time applying.",
+    "Job Flow scores every job against your profile and researches companies for you, so you spend less time searching and more time applying.",
 };
 
 export default function RootLayout({

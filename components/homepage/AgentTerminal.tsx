@@ -5,7 +5,7 @@ type LogLine = {
 };
 
 const LOGS: LogLine[] = [
-  { tag: "START", tagColor: "text-accent", text: "Initializing JobPilot agent…" },
+  { tag: "START", tagColor: "text-accent", text: "Initializing Job Flow agent…" },
   { tag: "DONE", tagColor: "text-success-alt", text: "Searched Adzuna — 24 matching jobs" },
   { tag: "DONE", tagColor: "text-success-alt", text: "Scored 24 roles against your profile" },
   { tag: "DONE", tagColor: "text-success-alt", text: "Filtered to 8 strong matches (70%+)" },

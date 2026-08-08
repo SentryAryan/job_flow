@@ -9,7 +9,7 @@ const defaultLevel =
  */
 export const rootLogger: Logger = pino({
   level: process.env.LOG_LEVEL?.trim() || defaultLevel,
-  base: { service: "jobpilot" },
+  base: { service: "jobflow" },
 });
 
 /** Scoped child logger (e.g. `createLogger("agent/research")`). */

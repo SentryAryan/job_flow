@@ -97,7 +97,7 @@ export function OpenRouterKeysSection({
       toast.success(
         result.data.hasKeys
           ? "Key removed"
-          : "Key removed — JobPilot keys and usage limits apply again",
+          : "Key removed — Job Flow keys and usage limits apply again",
       );
       onKeysChanged?.();
     } catch {
@@ -126,9 +126,9 @@ export function OpenRouterKeysSection({
             openrouter.ai
           </a>{" "}
           to use your own AI credits for Extract, Generate, and Find Jobs — with
-          no JobPilot usage limits. We check the key when you add it, store it
+          no Job Flow usage limits. We check the key when you add it, store it
           encrypted, and only show the last 4 characters. If something goes
-          wrong, remove your keys here to switch back to JobPilot’s keys (with
+          wrong, remove your keys here to switch back to Job Flow’s keys (with
           usage limits).
         </CardDescription>
       </CardHeader>
@@ -147,7 +147,7 @@ export function OpenRouterKeysSection({
             role="status"
           >
             You’re using your own keys. Extract, Generate, and Find Jobs won’t
-            count toward JobPilot limits. Remove all keys below to use JobPilot’s
+            count toward Job Flow limits. Remove all keys below to use Job Flow’s
             keys again.
           </p>
         ) : null}
@@ -184,7 +184,7 @@ export function OpenRouterKeysSection({
 
         {!loading && !error && !hasKeys ? (
           <p className="text-sm text-text-secondary">
-            No personal keys yet — JobPilot’s keys and usage limits apply.
+            No personal keys yet — Job Flow’s keys and usage limits apply.
           </p>
         ) : null}
 

@@ -74,7 +74,7 @@ Shared chrome for marketing and authenticated pages (home, login, profile, find-
 
 ### ThemeProvider — `components/theme/ThemeProvider.tsx`
 
-Wraps `next-themes` (`attribute="class"`, `defaultTheme="system"`, `storageKey="jobpilot-theme"`). Mounted in `app/providers.tsx` outside `AuthProvider`. Root `<html>` uses `suppressHydrationWarning`.
+Wraps `next-themes` (`attribute="class"`, `defaultTheme="system"`, `storageKey="jobflow-theme"`). Mounted in `app/providers.tsx` outside `AuthProvider`. Root `<html>` uses `suppressHydrationWarning`.
 
 ### ThemeSwitcher — `components/theme/ThemeSwitcher.tsx`
 
@@ -206,13 +206,13 @@ Client page wrapped in `AuthGuard` with `JobDetailsSkeleton` fallback. Loads one
 
 ### Navbar AI panels — `components/layout/NavbarAiPanels.tsx`
 
-Avatar dropdown embeds compact **AI usage** (shared Extract / Generate / Find Jobs / Company Research pool) and **OpenRouter keys** add/list (same APIs as profile). Wider menu (`w-80`). Keys change refreshes usage panel. Research / Extract / Generate dispatch `jobpilot:resume-ai-usage-refresh` for an immediate usage refetch.
+Avatar dropdown embeds compact **AI usage** (shared Extract / Generate / Find Jobs / Company Research pool) and **OpenRouter keys** add/list (same APIs as profile). Wider menu (`w-80`). Keys change refreshes usage panel. Research / Extract / Generate dispatch `jobflow:resume-ai-usage-refresh` for an immediate usage refetch.
 
 ### UI primitives — `components/ui/`
 
-**shadcn/ui** (radix-nova) + JobPilot tokens. Config: `components.json`. Add via `npx shadcn@latest add <name>`. Index barrel allowed only here.
+**shadcn/ui** (radix-nova) + Job Flow tokens. Config: `components.json`. Add via `npx shadcn@latest add <name>`. Index barrel allowed only here.
 
-- **Button** — shadcn `Button` with JobPilot variants: `default`/`primary` (purple elevated border), `secondary`/`outline` (gray elevated), `muted`, `danger`/`destructive` (solid red hover). Optional `pending` shows decorative `Spinner` + `aria-busy` and disables. Always `cursor-pointer` / `disabled:cursor-not-allowed`. No hover translate. Lucide icons via `data-icon="inline-start"` on profile actions.
+- **Button** — shadcn `Button` with Job Flow variants: `default`/`primary` (purple elevated border), `secondary`/`outline` (gray elevated), `muted`, `danger`/`destructive` (solid red hover). Optional `pending` shows decorative `Spinner` + `aria-busy` and disables. Always `cursor-pointer` / `disabled:cursor-not-allowed`. No hover translate. Lucide icons via `data-icon="inline-start"` on profile actions.
 - **Spinner** — lucide `Loader2` + `text-accent`; `size` sm|md; `decorative` inside busy buttons
 - **Skeleton** — shadcn `Skeleton` (`animate-pulse bg-muted`); page/section loading placeholders keep Navbar visible — never full-viewport spinner-only screens
 - **Progress** — shadcn Progress (`components/ui/progress.tsx`); used by Resume AI usage card
@@ -221,7 +221,7 @@ Avatar dropdown embeds compact **AI usage** (shared Extract / Generate / Find Jo
 - **Checkbox** — shadcn Checkbox for boolean fields (e.g. “Currently working here”)
 - **Label** — Radix Label; profile default `mb-1.5 block text-xs font-semibold uppercase tracking-wide text-text-secondary`
 - **Card** — compose with `CardContent` (and Header/Title/Footer as needed); `border-border` + `shadow-[var(--shadow-card)]`
-- **Chart** — shadcn Chart (`components/ui/chart.tsx`) over Recharts v3; use `ChartContainer` + `ChartTooltip` / `ChartTooltipContent`; series colors via `--chart-1`…`--chart-5` (JobPilot accent/info/success)
+- **Chart** — shadcn Chart (`components/ui/chart.tsx`) over Recharts v3; use `ChartContainer` + `ChartTooltip` / `ChartTooltipContent`; series colors via `--chart-1`…`--chart-5` (Job Flow accent/info/success)
 - **Badge** — shadcn Badge available
 - **Tag** — project chip (`border-accent bg-accent-light`) for skills/industry; not from shadcn
 
@@ -299,7 +299,7 @@ Profile card above Resume: three Progress rows (minute / hour / day) showing **u
 
 ### OpenRouterKeysSection — `components/profile/OpenRouterKeysSection.tsx`
 
-Profile Card for optional personal OpenRouter keys: paste one key → Add (server verifies with OpenRouter before save). Lists masked `••••last4` with Remove. User-facing copy explains using your own credits (no JobPilot limits) for Extract, Generate, and Find Jobs vs removing keys to return to JobPilot keys + limits. Status banner while keys are active. Max 5 keys; ciphertext never returned to the client. Calls `onKeysChanged` so the usage card can refresh/hide. Compact twin in Navbar avatar menu.
+Profile Card for optional personal OpenRouter keys: paste one key → Add (server verifies with OpenRouter before save). Lists masked `••••last4` with Remove. User-facing copy explains using your own credits (no Job Flow limits) for Extract, Generate, and Find Jobs vs removing keys to return to Job Flow keys + limits. Status banner while keys are active. Max 5 keys; ciphertext never returned to the client. Calls `onKeysChanged` so the usage card can refresh/hide. Compact twin in Navbar avatar menu.
 
 ### ResumeUpload — `components/profile/ResumeUpload.tsx`
 

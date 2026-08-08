@@ -19,7 +19,7 @@ export default function Hero() {
         </h1>
         <p className="mx-auto mt-5 max-w-xl text-base text-text-secondary">
           Finding roles, researching companies, and guessing your fit eats up
-          hours. JobPilot scores every job against your profile and does the
+          hours. Job Flow scores every job against your profile and does the
           research for you — so you just review and apply.
         </p>
         <div className="mt-8 flex justify-center">

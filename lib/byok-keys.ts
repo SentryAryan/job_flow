@@ -6,7 +6,7 @@ export const MAX_BYOK_KEYS = 5;
 
 /** Shown when the user's saved OpenRouter keys fail auth or quota (no platform fallback). */
 export const BYOK_KEYS_FAILED_USER_MESSAGE =
-  "Your OpenRouter key isn’t working or is out of quota. Update or remove it under Your OpenRouter keys to use JobPilot’s keys (with usage limits).";
+  "Your OpenRouter key isn’t working or is out of quota. Update or remove it under Your OpenRouter keys to use Job Flow’s keys (with usage limits).";
 
 export type StoredByokKey = {
   id: string;

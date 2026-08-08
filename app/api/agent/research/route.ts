@@ -17,6 +17,7 @@ import { ResearchLlmMeter } from "@/lib/research-llm-meter";
 import {
     RESEARCH_MAX_OPENROUTER_CALLS,
     RESEARCH_USAGE_HITS,
+    researchRouteMaxDurationSec,
 } from "@/lib/research-timeouts";
 import {
     canUseResumeAiQuota,
@@ -28,8 +29,12 @@ import {
 } from "@/lib/resume-ai-rate-limit";
 
 export const runtime = "nodejs";
-/** Platform ceiling (seconds) — research overall budget is 12 min; leave headroom. */
-export const maxDuration = 800;
+/**
+ * Vercel Hobby requires ≤300. Driven by RESEARCH_TIMEOUT_CLAMP /
+ * NEXT_PUBLIC_RESEARCH_TIMEOUT_CLAMP (`clamp` default → 300; `no_clamp` → 800
+ * or RESEARCH_ROUTE_MAX_DURATION_SEC). Do not use no_clamp on Vercel Hobby.
+ */
+export const maxDuration = researchRouteMaxDurationSec();
 
 const bodySchema = z.object({
   jobId: z.string().trim().uuid("Invalid job id"),

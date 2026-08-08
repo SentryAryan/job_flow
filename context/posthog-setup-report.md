@@ -1,6 +1,6 @@
 # PostHog post-wizard report
 
-The wizard has completed a full PostHog integration for JobPilot. Here is a summary of every change made:
+The wizard has completed a full PostHog integration for Job Flow. Here is a summary of every change made:
 
 - **`instrumentation-client.ts`** (new) — Initializes PostHog via the Next.js 15.3+ `instrumentation-client` hook with a reverse proxy, exception autocapture, and debug mode in development.
 - **`next.config.ts`** — Added `/ingest` rewrites so all PostHog requests route through the Next.js server (avoids ad-blockers); `skipTrailingSlashRedirect: true` added for PostHog API compatibility.

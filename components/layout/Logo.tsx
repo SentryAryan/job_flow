@@ -28,7 +28,7 @@ export default function Logo({ href = "/" }: LogoProps) {
           />
         </svg>
       </span>
-      <span className="text-[19px] font-bold text-text-primary">JobPilot</span>
+      <span className="text-[19px] font-bold text-text-primary">Job Flow</span>
     </Link>
   );
 }

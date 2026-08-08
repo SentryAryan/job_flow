@@ -23,7 +23,7 @@ export default function DashboardPreview() {
         <span className="h-2.5 w-2.5 rounded-full bg-warning" />
         <span className="h-2.5 w-2.5 rounded-full bg-success" />
         <div className="mx-auto rounded-full bg-surface px-4 py-1 text-[11px] text-text-muted">
-          app.jobpilot.com/dashboard
+          app.jobflow.com/dashboard
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 # Library Docs
 
-Project-specific usage patterns for every third party library in this project. This file only covers how we use each library in this specific project — rules, patterns, and constraints specific to JobPilot.
+Project-specific usage patterns for every third party library in this project. This file only covers how we use each library in this specific project — rules, patterns, and constraints specific to Job Flow.
 
 Read the relevant section before implementing any feature that touches these libraries.
 
@@ -291,19 +291,19 @@ const bb = new Browserbase({ apiKey: process.env.BROWSERBASE_API_KEY! });
 // Single session for company research — sequential page visits
 const session = await bb.sessions.create({
   projectId: process.env.BROWSERBASE_PROJECT_ID!,
-  // Default 600s (10 min); override via BROWSERBASE_SESSION_TIMEOUT_SEC
-  timeout: Number(process.env.BROWSERBASE_SESSION_TIMEOUT_SEC ?? 600),
+  // Default 285s (Hobby maxDuration headroom); override via BROWSERBASE_SESSION_TIMEOUT_SEC
+  timeout: Number(process.env.BROWSERBASE_SESSION_TIMEOUT_SEC ?? 285),
 });
 ```
 
 **Important — Feature 13 awaits the full browse + synthesis in the API route** then returns the dossier. Always `await stagehand.close()` in `finally`. Do not fire-and-forget the Browserbase session.
 
-**Env:** `BROWSERBASE_API_KEY`, `BROWSERBASE_PROJECT_ID` (server-only). Optional: `BROWSERBASE_SESSION_TIMEOUT_SEC` (default 600), `RESEARCH_OVERALL_TIMEOUT_MS` (720000), `RESEARCH_GOTO_TIMEOUT_MS` (60000), `RESEARCH_EXTRACT_TIMEOUT_MS` (180000), `NEXT_PUBLIC_RESEARCH_CLIENT_TIMEOUT_MS` (750000).
+**Env:** `BROWSERBASE_API_KEY`, `BROWSERBASE_PROJECT_ID` (server-only). Optional clamp: `RESEARCH_TIMEOUT_CLAMP` / `NEXT_PUBLIC_RESEARCH_TIMEOUT_CLAMP` (`clamp` default → Hobby 300s caps; `no_clamp` → long-running / Pro). Budgets: `BROWSERBASE_SESSION_TIMEOUT_SEC`, `RESEARCH_OVERALL_TIMEOUT_MS`, `RESEARCH_GOTO_TIMEOUT_MS`, `RESEARCH_EXTRACT_TIMEOUT_MS`, `NEXT_PUBLIC_RESEARCH_CLIENT_TIMEOUT_MS`, optional `RESEARCH_ROUTE_MAX_DURATION_SEC` when unclamped. Hobby defaults ≈ 285s session / 270s overall / 60s extract / 285s client; `no_clamp` defaults ≈ 780s / 720s / 180s / 750s.
 
 **Rules:**
 
 - Always use single sessions — never parallel sessions (free plan limit)
-- Session timeout defaults to **600 seconds** — long enough for slow OpenRouter free extracts across 3–4 pages
+- Session timeout follows clamp mode — Hobby-safe when clamped; longer with `no_clamp` + env overrides
 - After each `page.goto`, detect Chrome error pages and hard bot walls (`ERR_SSL_*`, Access Denied, `chrome-error://`) via `agent/research-nav.ts` and **skip extract**. Dedicated auth titles (`Sign In / Register`) and denylist paths also skip; do **not** treat ambient “Sign in” in page body as unusable
 - Bound hung `goto` / `extract` / overall research with `withTimeout` (`lib/research-timeouts.ts`); overall timeout still returns a degraded dossier
 - Always end sessions cleanly — call `stagehand.close()` when done
@@ -577,14 +577,14 @@ const { object } = await withOpenRouterKeyFailover((model) =>
 
 **Company Research agent:**
 
-- `POST /api/agent/research` `{ jobId }` — `agent/research.ts` + Browserbase/Stagehand + OpenRouter synthesis (`maxDuration` 800)
+- `POST /api/agent/research` `{ jobId }` — `agent/research.ts` + Browserbase/Stagehand + OpenRouter synthesis (`maxDuration` from clamp mode: Hobby **300** / `no_clamp` **800**)
 - After `goto`, skip LLM extract on unusable pages (Chrome SSL, Access Denied / bot walls, **auth-wall titles** like `Sign In / Register`, denylisted `/login|/account|/cart|…` via `agent/research-nav.ts`). Ambient “Sign in” in retailer nav chrome does **not** skip extract
 - Prefer About/Careers/Team/Engineering/Blog; **max 1** sub-page; hard-cap OpenRouter at 5; fixed Redis charge of 5 when admitted
 - Sub-page: retry once on extract timeout; skip when remaining overall budget is tight; skip rich homepage + tight retry budget (`lib/research-browse-policy.ts`)
 - Logging: Pino (`lib/logger.ts`) — short events only (pages extracted / used in dossier); Stagehand `verbose: 0` + quiet logger (no DOM dumps)
-- Long `withTimeout` budgets in `lib/research-timeouts.ts`; overall timeout → degraded dossier
+- Budgets in `lib/research-timeouts.ts` via `RESEARCH_TIMEOUT_CLAMP`; overall timeout → degraded dossier
 - Homepage derivation: `lib/company-homepage.ts` (20s fetch abort); known storefronts (Amazon → aboutamazon, etc.) override on redirect **and** company-name fallback
-- Dossier saved to `jobs.company_research`; client fires PostHog `company_researched`; client AbortSignal ~750s
+- Dossier saved to `jobs.company_research`; client fires PostHog `company_researched`; client AbortSignal follows clamp mode
 
 **OpenRouter BYOK (profile):**
 
@@ -646,19 +646,19 @@ npx shadcn@latest add button card dialog
 
 Install into `components/ui/`. Do not hand-roll primitives that already exist in the registry.
 
-### Theming (JobPilot tokens win)
+### Theming (Job Flow tokens win)
 
 - Brand / product colors live as `--jp-*` in `app/globals.css` and are exposed via `@theme` (`bg-accent`, `text-text-primary`, `border-border`, …).
-- shadcn semantic vars (`--primary`, `--muted`, …) map onto JobPilot values in `:root`.
+- shadcn semantic vars (`--primary`, `--muted`, …) map onto Job Flow values in `:root`.
 - **Do not** let `@theme inline` overwrite `--color-accent` / `--color-border` / `--color-background` with shadcn’s muted “accent” meaning — brand purple must stay `bg-accent`.
 - Font: Inter via `--font-inter` → `--font-sans` (never Geist unless design changes).
 
 ### Project conventions on top of shadcn
 
-- Prefer JobPilot Button variants: `primary` / `secondary` / `muted` / `danger` (aliases of shadcn defaults).
+- Prefer Job Flow Button variants: `primary` / `secondary` / `muted` / `danger` (aliases of shadcn defaults).
 - `Button` may take `pending` for spinner + `aria-busy` (compose pattern kept for profile UX).
 - Toasts: keep `components/ui/toaster.tsx` (token-styled Sonner) — do not swap to default shadcn sonner without matching bottom-right + semantic colors.
-- **Always use shadcn registry components first** (`Select`, `Checkbox`, `Button`, `Input`, …). Do not use native `<select>`, `<button>`, or `<input type="checkbox">` when a shadcn counterpart exists. Style triggers/fields with JobPilot tokens — never invent a parallel native wrapper.
+- **Always use shadcn registry components first** (`Select`, `Checkbox`, `Button`, `Input`, …). Do not use native `<select>`, `<button>`, or `<input type="checkbox">` when a shadcn counterpart exists. Style triggers/fields with Job Flow tokens — never invent a parallel native wrapper.
 - Dropdowns: Radix `Select` + `SelectTrigger` / `SelectContent` / `SelectItem` (trigger chrome matches `Input`).
 - Use `cn()` from `@/lib/utils` for class merges.
 - Always `cursor-pointer` on clickable controls; no hover translate on buttons.

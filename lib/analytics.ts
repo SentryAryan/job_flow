@@ -4,7 +4,7 @@ import { isPostHogEnabled } from "@/lib/posthog-config";
 
 export type OAuthProvider = "google" | "github";
 
-const OAUTH_PROVIDER_KEY = "jobpilot_oauth_provider";
+const OAUTH_PROVIDER_KEY = "jobflow_oauth_provider";
 
 export function setPendingOAuthProvider(provider: OAuthProvider): void {
   sessionStorage.setItem(OAUTH_PROVIDER_KEY, provider);

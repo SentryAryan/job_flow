@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
-  JobPilot design tokens (source of truth for product UI).
+  Job Flow design tokens (source of truth for product UI).
   shadcn semantic vars in :root map onto these so new primitives match the brand.
 */
 :root {
@@ -82,7 +82,7 @@
 
   color-scheme: light;
 
-  /* shadcn semantic → JobPilot */
+  /* shadcn semantic → Job Flow */
   --background: var(--jp-background);
   --foreground: var(--jp-text-primary);
   --card: var(--jp-surface);
@@ -121,7 +121,7 @@
 }
 
 /*
-  Dark palette — derived JobPilot tokens (no separate design PNG).
+  Dark palette — derived Job Flow tokens (no separate design PNG).
   @theme --color-* already reference var(--jp-*), so utilities flip with .dark.
 */
 .dark {
@@ -250,7 +250,7 @@
   --color-text-slate: var(--jp-text-slate);
   --color-text-slate-medium: var(--jp-text-slate-medium);
 
-  /* Brand purple — JobPilot `bg-accent` / `text-accent` (not shadcn muted accent) */
+  /* Brand purple — Job Flow `bg-accent` / `text-accent` (not shadcn muted accent) */
   --color-accent: var(--jp-accent);
   --color-accent-dark: var(--jp-accent-dark);
   --color-accent-light: var(--jp-accent-light);
@@ -334,7 +334,7 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   /* Do NOT remap --color-background / --color-border / --color-accent here —
-     JobPilot @theme tokens above remain the source of truth for those utilities. */
+     Job Flow @theme tokens above remain the source of truth for those utilities. */
 }
 
 @layer base {

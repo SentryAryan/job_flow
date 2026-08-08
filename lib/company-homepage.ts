@@ -146,7 +146,7 @@ export async function deriveCompanyHomepage(
       redirect: "follow",
       signal,
       headers: {
-        "User-Agent": "JobPilotCompanyResearch/1.0",
+        "User-Agent": "JobFlowCompanyResearch/1.0",
       },
     });
     resolvedUrl = response.url || redirectUrl;

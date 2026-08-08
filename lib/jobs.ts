@@ -191,7 +191,7 @@ export async function researchCompanyForJob(
 }
 
 /** Notify Navbar usage panel to refetch (dispatched after AI actions). */
-export const RESUME_AI_USAGE_REFRESH_EVENT = "jobpilot:resume-ai-usage-refresh";
+export const RESUME_AI_USAGE_REFRESH_EVENT = "jobflow:resume-ai-usage-refresh";
 
 export function notifyResumeAiUsageRefresh(): void {
   if (typeof window === "undefined") return;

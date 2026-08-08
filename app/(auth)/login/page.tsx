@@ -157,7 +157,7 @@ export default function LoginPage() {
           <div className="flex flex-col justify-center border-t border-border p-8 md:border-l md:border-t-0 md:p-10">
             <p className="text-xs text-text-muted">Welcome to</p>
             <h2 className="mt-1 text-2xl font-bold text-text-primary">
-              JobPilot
+              Job Flow
             </h2>
             <p className="mt-2 text-sm text-text-secondary">
               Choose your preferred provider to continue.

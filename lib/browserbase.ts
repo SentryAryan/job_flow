@@ -24,8 +24,9 @@ export function createBrowserbaseClient(): Browserbase {
 }
 
 /**
- * Single-session company research (homepage + up to 3 sub-pages).
- * Default session timeout 600s (env: BROWSERBASE_SESSION_TIMEOUT_SEC).
+ * Single-session company research (homepage + up to 1 sub-page).
+ * Default session timeout matches Hobby `maxDuration` headroom
+ * (env: BROWSERBASE_SESSION_TIMEOUT_SEC).
  */
 export async function createResearchBrowserSession(): Promise<{
   id: string;

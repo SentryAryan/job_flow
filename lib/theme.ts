@@ -16,7 +16,7 @@ export const THEME_OPTIONS: ReadonlyArray<ThemeOption> = [
   { value: "system", label: "System" },
 ] as const;
 
-export const THEME_STORAGE_KEY = "jobpilot-theme";
+export const THEME_STORAGE_KEY = "jobflow-theme";
 
 /** Normalize an unknown preference to a valid AppTheme (default system). */
 export function parseAppTheme(value: string | null | undefined): AppTheme {

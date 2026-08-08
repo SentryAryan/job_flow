@@ -1,6 +1,6 @@
 # UI Tokens
 
-Design tokens for JobPilot. All colors, typography, spacing, and component values extracted from the delivered design. Use these exact values throughout the codebase — never hardcode colors or use raw Tailwind color classes in components.
+Design tokens for Job Flow. All colors, typography, spacing, and component values extracted from the delivered design. Use these exact values throughout the codebase — never hardcode colors or use raw Tailwind color classes in components.
 
 ---
 

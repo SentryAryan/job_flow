@@ -209,7 +209,7 @@ export function NavbarOpenRouterKeysPanel({
       toast.success(
         result.data.hasKeys
           ? "Key removed"
-          : "Key removed — JobPilot keys and usage limits apply again",
+          : "Key removed — Job Flow keys and usage limits apply again",
       );
       onKeysChanged?.();
     } catch {
@@ -223,7 +223,7 @@ export function NavbarOpenRouterKeysPanel({
     <div className={cn("flex flex-col gap-2 px-2 py-2", className)}>
       <p className="text-xs font-semibold text-text-primary">OpenRouter keys</p>
       <p className="text-[11px] leading-snug text-text-secondary">
-        Optional. Your keys skip JobPilot limits for Extract, Generate, Find
+        Optional. Your keys skip Job Flow limits for Extract, Generate, Find
         Jobs, and Company Research.
       </p>
 
