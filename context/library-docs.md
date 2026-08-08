@@ -786,9 +786,12 @@ Only use these — others are silently ignored:
 ### Extract Text from Uploaded Resume
 
 ```typescript
+// Worker + CanvasFactory required for Vercel/serverless (DOMMatrix / pdf.worker).
+import { CanvasFactory, getData } from "pdf-parse/worker";
 import { PDFParse } from "pdf-parse";
 
-const parser = new PDFParse({ data: buffer });
+PDFParse.setWorker(getData());
+const parser = new PDFParse({ data: buffer, CanvasFactory });
 try {
   // Prefer lib/pdf-text extractPdfContent — enables hyperlink recovery for LinkedIn/GitHub labels
   const pdfData = await parser.getText({ parseHyperlinks: true });
@@ -804,6 +807,8 @@ try {
 
 - Server-side only — never import in client components
 - Route must use `export const runtime = "nodejs"`
+- On Vercel: `serverExternalPackages: ["pdf-parse", "@napi-rs/canvas"]` + `outputFileTracingIncludes` for `/api/resume/extract` (see `next.config.ts`); keep `@napi-rs/canvas` as a direct dependency
+- Import `pdf-parse/worker` (`CanvasFactory` / `getData`) **before** using `PDFParse` — otherwise production crashes with HTML 500 (`DOMMatrix is not defined` / missing worker)
 - Use `extractPdfContent` from `lib/pdf-text.ts` (Node only) so embedded hyperlinks (e.g. "LinkedIn" / "GitHub" anchors) are appended as `EXTRACTED_HYPERLINKS` for AI + heuristics
 - `pdfData.text` is raw unformatted text — the AI SDK handles structure extraction
 - Always handle parse errors — some PDFs are image-based and return empty text

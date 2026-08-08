@@ -1,4 +1,14 @@
+/**
+ * PDF text + hyperlink extraction (Node only).
+ *
+ * Vercel/serverless: import the pdf-parse worker (and CanvasFactory) before
+ * `PDFParse`, and keep `pdf-parse` + `@napi-rs/canvas` in serverExternalPackages
+ * so native canvas + worker files are traced into the function bundle.
+ */
 import { PDFParse } from "pdf-parse";
+import { CanvasFactory, getData } from "pdf-parse/worker";
+
+PDFParse.setWorker(getData());
 
 export type PdfHyperlink = {
   text: string;
@@ -60,7 +70,7 @@ export async function extractPdfContent(
     throw new Error("Not a PDF file");
   }
 
-  const parser = new PDFParse({ data: buffer });
+  const parser = new PDFParse({ data: buffer, CanvasFactory });
   try {
     const textResult = await parser.getText({ parseHyperlinks: true });
     const infoResult = await parser.getInfo({ parsePageInfo: true });
