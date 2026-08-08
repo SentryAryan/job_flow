@@ -71,6 +71,8 @@ export async function POST(request: Request) {
     return jsonError(auth.status, auth.error);
   }
 
+  const { user, accessToken } = auth;
+
   let rateLimitHeaders: HeadersInit | undefined;
   try {
     const ipRate = await enforceResumeAiIpRateLimit(request);
@@ -94,7 +96,7 @@ export async function POST(request: Request) {
 
   let client: ReturnType<typeof createClient>;
   try {
-    client = createAuthedInsforgeClient(auth.accessToken);
+    client = createAuthedInsforgeClient(accessToken);
   } catch (error) {
     console.error("[api/resume/generate] client", error);
     return jsonError(503, "Resume generation is temporarily unavailable.");
@@ -102,7 +104,7 @@ export async function POST(request: Request) {
 
   let byokKeys: string[] = [];
   try {
-    byokKeys = await loadDecryptedOpenRouterKeys(auth.user.id, client);
+    byokKeys = await loadDecryptedOpenRouterKeys(user.id, client);
   } catch (error) {
     if (
       error instanceof Error &&
@@ -125,7 +127,7 @@ export async function POST(request: Request) {
 
   if (!useByok) {
     try {
-      const admission = await admitResumeAiUserQuota(auth.user.id);
+      const admission = await admitResumeAiUserQuota(user.id);
       if (!admission.admitted) {
         return jsonError(
           429,
@@ -145,7 +147,7 @@ export async function POST(request: Request) {
   const { data: row, error: loadError } = await client.database
     .from("profiles")
     .select("*")
-    .eq("id", auth.user.id)
+    .eq("id", user.id)
     .single();
 
   if (loadError || !row || typeof row !== "object") {
@@ -218,7 +220,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const canonicalKey = resumeObjectKey(auth.user.id);
+  const canonicalKey = resumeObjectKey(user.id);
   const previousUrl = profile.resume_pdf_url;
   const staleKeys = new Set<string>();
   if (previousUrl) {
@@ -252,7 +254,7 @@ export async function POST(request: Request) {
   const { data: updated, error: updateError } = await client.database
     .from("profiles")
     .update({ resume_pdf_url: uploadData.url })
-    .eq("id", auth.user.id)
+    .eq("id", user.id)
     .select("resume_pdf_url")
     .single();
 
@@ -272,7 +274,7 @@ export async function POST(request: Request) {
 
   if (!useByok) {
     try {
-      const rate = await enforceResumeAiRateLimit(auth.user.id);
+      const rate = await enforceResumeAiRateLimit(user.id);
       if (rate.enforced) {
         rateLimitHeaders = rateLimitResponseHeaders(rate.result);
       }

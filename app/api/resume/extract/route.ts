@@ -68,6 +68,8 @@ export async function POST(request: Request) {
     return jsonError(auth.status, auth.error);
   }
 
+  const { user, accessToken } = auth;
+
   let rateLimitHeaders: HeadersInit | undefined;
   try {
     const ipRate = await enforceResumeAiIpRateLimit(request);
@@ -91,8 +93,8 @@ export async function POST(request: Request) {
 
   let byokKeys: string[] = [];
   try {
-    const client = createAuthedInsforgeClient(auth.accessToken);
-    byokKeys = await loadDecryptedOpenRouterKeys(auth.user.id, client);
+    const client = createAuthedInsforgeClient(accessToken);
+    byokKeys = await loadDecryptedOpenRouterKeys(user.id, client);
   } catch (error) {
     if (
       error instanceof Error &&
@@ -115,7 +117,7 @@ export async function POST(request: Request) {
 
   if (!useByok) {
     try {
-      const admission = await admitResumeAiUserQuota(auth.user.id);
+      const admission = await admitResumeAiUserQuota(user.id);
       if (!admission.admitted) {
         return jsonError(
           429,
@@ -176,7 +178,7 @@ export async function POST(request: Request) {
   async function recordSuccessUsage(): Promise<HeadersInit | undefined> {
     if (useByok) return rateLimitHeaders;
     try {
-      const rate = await enforceResumeAiRateLimit(auth.user.id);
+      const rate = await enforceResumeAiRateLimit(user.id);
       if (rate.enforced) {
         return rateLimitResponseHeaders(rate.result);
       }

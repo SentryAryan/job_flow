@@ -65,7 +65,7 @@ export function wrapOpenAiClientForStagehand(client: OpenAI): OpenAI {
       ...(args as Parameters<typeof completions.create>),
     );
     return healChatCompletionContent(response as never) as never;
-  }) as typeof completions.create;
+  }) as unknown as typeof completions.create;
 
   return client;
 }
@@ -108,7 +108,7 @@ export function buildResearchStagehandLlmClient(options: {
     return originalCreate(
       ...(args as Parameters<CustomOpenAIClient["createChatCompletion"]>),
     );
-  }) as CustomOpenAIClient["createChatCompletion"];
+  }) as unknown as CustomOpenAIClient["createChatCompletion"];
 
   const counting = client as CountingLlmClient;
   counting.consumeLlmCallCount = () => {

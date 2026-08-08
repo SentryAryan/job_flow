@@ -44,6 +44,8 @@ export async function POST(request: Request) {
     return jsonError(auth.status, auth.error);
   }
 
+  const { user, accessToken } = auth;
+
   let rateLimitHeaders: HeadersInit | undefined;
   try {
     const ipRate = await enforceResumeAiIpRateLimit(request);
@@ -80,7 +82,7 @@ export async function POST(request: Request) {
 
   let client: ReturnType<typeof createClient>;
   try {
-    client = createAuthedInsforgeClient(auth.accessToken);
+    client = createAuthedInsforgeClient(accessToken);
   } catch (error) {
     console.error("[api/agent/find] client", error);
     return jsonError(503, "Job search is temporarily unavailable.");
@@ -89,7 +91,7 @@ export async function POST(request: Request) {
   const { data: row, error: loadError } = await client.database
     .from("profiles")
     .select("*")
-    .eq("id", auth.user.id)
+    .eq("id", user.id)
     .single();
 
   if (loadError || !row || typeof row !== "object") {
@@ -104,7 +106,7 @@ export async function POST(request: Request) {
 
   let byokKeys: string[] = [];
   try {
-    byokKeys = await loadDecryptedOpenRouterKeys(auth.user.id, client);
+    byokKeys = await loadDecryptedOpenRouterKeys(user.id, client);
   } catch (error) {
     if (
       error instanceof Error &&
@@ -131,7 +133,7 @@ export async function POST(request: Request) {
   // Admission peeks (no hit). Each successful AI scoring batch records one hit.
   if (!useByok) {
     try {
-      const admission = await canUseResumeAiQuota(auth.user.id);
+      const admission = await canUseResumeAiQuota(user.id);
       if (admission.checked && !admission.allowed) {
         rateLimitHeaders = rateLimitHeadersFromUsage(admission.windows);
         return jsonError(
@@ -151,7 +153,7 @@ export async function POST(request: Request) {
 
   try {
     const result = await discoverJobs({
-      userId: auth.user.id,
+      userId: user.id,
       jobTitle: parsed.data.jobTitle,
       location: parsed.data.location,
       profile,
@@ -164,7 +166,7 @@ export async function POST(request: Request) {
             canUseAi: async () => {
               if (aiQuotaExhausted) return false;
               try {
-                const quota = await canUseResumeAiQuota(auth.user.id);
+                const quota = await canUseResumeAiQuota(user.id);
                 if (quota.checked && !quota.allowed) {
                   aiQuotaExhausted = true;
                   rateLimitHeaders = rateLimitHeadersFromUsage(quota.windows);
@@ -177,7 +179,7 @@ export async function POST(request: Request) {
               }
             },
             onSuccessfulAiBatch: async () => {
-              const rate = await enforceResumeAiRateLimit(auth.user.id);
+              const rate = await enforceResumeAiRateLimit(user.id);
               if (rate.enforced) {
                 rateLimitHeaders = rateLimitResponseHeaders(rate.result);
                 if (!rate.result.allowed) {

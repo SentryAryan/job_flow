@@ -63,6 +63,8 @@ export async function POST(request: Request) {
     return jsonError(auth.status, auth.error);
   }
 
+  const { user, accessToken } = auth;
+
   let rateLimitHeaders: HeadersInit | undefined;
   try {
     const ipRate = await enforceResumeAiIpRateLimit(request);
@@ -99,7 +101,7 @@ export async function POST(request: Request) {
 
   let client: ReturnType<typeof createClient>;
   try {
-    client = createAuthedInsforgeClient(auth.accessToken);
+    client = createAuthedInsforgeClient(accessToken);
   } catch (error) {
     console.error("[api/agent/research] client", error);
     return jsonError(503, "Company research is temporarily unavailable.");
@@ -107,7 +109,7 @@ export async function POST(request: Request) {
 
   let byokKeys: string[] = [];
   try {
-    byokKeys = await loadDecryptedOpenRouterKeys(auth.user.id, client);
+    byokKeys = await loadDecryptedOpenRouterKeys(user.id, client);
   } catch (error) {
     if (
       error instanceof Error &&
@@ -130,7 +132,7 @@ export async function POST(request: Request) {
 
   if (!useByok) {
     try {
-      const admission = await canUseResumeAiQuota(auth.user.id);
+      const admission = await canUseResumeAiQuota(user.id);
       if (
         admission.checked &&
         (!admission.allowed ||
@@ -167,7 +169,7 @@ export async function POST(request: Request) {
     const llmMeter = new ResearchLlmMeter();
 
     const result = await researchCompany({
-      userId: auth.user.id,
+      userId: user.id,
       jobId: parsed.data.jobId,
       client,
       openRouterApiKey,
@@ -186,7 +188,7 @@ export async function POST(request: Request) {
             },
             recordLlmHits: async (count: number) => {
               const rate = await enforceResumeAiRateLimitHitsCapped(
-                auth.user.id,
+                user.id,
                 count,
               );
               if (rate.enforced && rate.result) {
