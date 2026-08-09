@@ -14,17 +14,41 @@ Open [http://localhost:3000](http://localhost:3000).
 
 Env reference: [`.env.sample`](.env.sample) — **Shared**, **Local**, **Vercel**, and **Render** sections are separate. Do not copy a Vercel Hobby clamp preset onto Render (or the reverse).
 
+## Docker Compose (local / self-host parity)
+
+Uses the same production `Dockerfile`. Render still deploys via Blueprint/`Dockerfile` (not Compose).
+
+1. Put `NEXT_PUBLIC_*` values in a `.env` file next to `docker-compose.yml` (Compose interpolates build args from `.env`), **or** export them in your shell.
+2. Keep secrets in `.env.local` (runtime `env_file`).
+3. Start Docker Desktop, then:
+
+```bash
+docker compose up
+```
+
+After code or `NEXT_PUBLIC_*` changes:
+
+```bash
+docker compose up --build
+```
+
+Day-to-day coding can still use `npm run dev`; Compose is for container parity.
+
+| Artifact | Vercel | Render | Local Compose |
+|----------|--------|--------|---------------|
+| `Dockerfile`, `.dockerignore`, `render.yaml` | Ignored | Used | Dockerfile used |
+| `docker-compose.yml` | Ignored | Ignored | Used |
+| `output: "standalone"` | Harmless | Used | Used |
+
 ## Will Docker / Render files break Vercel?
 
-**No.** Safe to push together:
+**No.** Safe to push together. Each host has its **own** environment variables.
 
 | Artifact | Vercel | Render |
 |----------|--------|--------|
-| `Dockerfile`, `.dockerignore`, `render.yaml` | Ignored | Used |
-| `output: "standalone"` in `next.config.ts` | Harmless (Vercel still runs its own `next build`) | Used for `node server.js` |
-| Env vars | Set in Vercel dashboard (`clamp` on Hobby) | Set in Render dashboard (`no_clamp`) |
-
-Each host has its **own** environment variables. Pushing the repo does not copy Render env into Vercel or vice versa.
+| `Dockerfile`, `.dockerignore`, `render.yaml`, `docker-compose.yml` | Ignored | Docker/Blueprint used; Compose ignored |
+| `output: "standalone"` in `next.config.ts` | Harmless | Used for `node server.js` |
+| Env vars | Vercel dashboard (`clamp` on Hobby) | Render dashboard (`no_clamp`) |
 
 ---
 
@@ -116,9 +140,9 @@ Keep `http://localhost:3000/callback` for local dev.
 2. Sign in (OAuth returns to `/callback`).
 3. Profile / Find Jobs / a short Company Research run if Browserbase is configured.
 
-### 7. Optional — local Docker smoke test
+### 7. Optional — local Docker via Compose
 
-Start Docker Desktop, then:
+Prefer Compose (see **Docker Compose** above). Manual equivalent:
 
 ```bash
 docker build \

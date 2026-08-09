@@ -10,7 +10,7 @@
 | AI browser control             | Stagehand                | Company page interaction and content extraction  |
 | Job Discovery                  | Adzuna API               | Job search and discovery                         |
 | AI model                       | Vercel AI SDK + OpenRouter | Structured extraction (Feature 07: `openrouter/free`); provider-swappable via `lib/ai/provider.ts` |
-| Analytics                      | PostHog                  | Event tracking and dashboard charts              |
+| Analytics                      | PostHog + InsForge       | PostHog events/insights; inventory charts from DB |
 | PDF generation                 | @react-pdf/renderer      | Resume PDF rendering                             |
 | Styling                        | Tailwind CSS + shadcn/ui | UI components and styling                        |
 | Language                       | TypeScript strict        | Throughout                                       |

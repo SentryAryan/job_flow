@@ -227,7 +227,7 @@ Avatar dropdown embeds compact **AI usage** (shared Extract / Generate / Find Jo
 
 ### Dashboard page — `app/dashboard/page.tsx`
 
-Client page wrapped in `AuthGuard` with `DashboardPageSkeleton` fallback. Live stats/activity via `fetchDashboardSummary` → `GET /api/dashboard` (Features 15–16); live charts via `fetchDashboardCharts` → `GET /api/dashboard/charts` (Feature 17 PostHog HogQL). Incomplete profile banner via `fetchProfile` + `CompletionBanner`. Composes `Navbar` + `StatsBar` (or `StatsBarSkeleton`) + mid row (activity | research chart) + bottom row (jobs area | match bars). Chart loading uses `ChartCardSkeleton`; chart errors toast + empty zero series.
+Client page wrapped in `AuthGuard` with `DashboardPageSkeleton` fallback. Live stats/activity via `fetchDashboardSummary` → `GET /api/dashboard` (Features 15–16). Inventory charts via split InsForge routes (`jobs-over-time`, `match-distribution`, `research-activity`) with shared `ChartRangeSelect` (`7d|30d|60d|all`). Product Insights via `fetchDashboardInsights` → `GET /api/dashboard/insights` (PostHog). Incomplete profile banner via `fetchProfile` + `CompletionBanner`. Composes `Navbar` + `StatsBar` + range select + mid row (activity | research chart) + bottom row (jobs area | match bars) + Product Insights. Per-card `ChartCardSkeleton`; chart errors toast + empty series.
 
 - Shell: `min-h-screen bg-background`
 - Main: `mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8 sm:px-8`
@@ -267,14 +267,22 @@ Vertical feed of typed activity items (top 5 from `GET /api/dashboard`). Dots: `
 
 ### AnalyticsCharts — `components/dashboard/AnalyticsCharts.tsx`
 
-Exports `CompanyResearchChart` (info `BarChart`), `JobsFoundOverTimeChart` (accent `AreaChart` monotone + gradient), and `MatchScoreDistributionChart` (success `BarChart`). Live series from PostHog (`DaySeriesPoint` / `MatchBucketPoint` via `lib/dashboard-charts.ts`). Empty states: “No research yet.” / “No jobs found yet.” / “No match scores yet.” Y domain `0…max(4, maxCount)`; 30-day X axis uses `interval="preserveStartEnd"` + `minTickGap`. Grid lines dashed `stroke-border`; axis ticks `text-text-muted` 12px. Chart height `h-[220px]` on `ChartContainer`.
+Exports `CompanyResearchChart` (info `BarChart`), `JobsFoundOverTimeChart` (accent `AreaChart` monotone + gradient), and `MatchScoreDistributionChart` (success `BarChart`). Live series from **InsForge** (`DaySeriesPoint` / `MatchBucketPoint` via `lib/dashboard-charts.ts`). Empty states: “No research yet.” / “No jobs found yet.” / “No match scores yet.” Y domain `0…max(4, maxCount)`; day axis uses `interval="preserveStartEnd"` + `minTickGap` where needed. Grid lines dashed `stroke-border`; axis ticks `text-text-muted` 12px. Chart height `h-[220px]` on `ChartContainer`.
 
 - Series draw-in via `useSeriesAnimation`: 600ms `ease-out` (Recharts' 1500ms default reads as sluggish), beginning 120ms after the card so card and data feel like one motion
 - `isAnimationActive` is off under `prefers-reduced-motion`
 
+### ChartRangeSelect — `components/dashboard/ChartRangeSelect.tsx`
+
+Shared shadcn `Select` for chart/insight window: Past 7 / 30 / 60 days, All time (`lib/dashboard-range.ts`).
+
+### ProductInsights — `components/dashboard/ProductInsights.tsx`
+
+PostHog engagement block: Job Searches Over Time (area) + Feature Usage (bar). Data from `GET /api/dashboard/insights`. Copy clarifies these are analytics events, not job inventory.
+
 ### ChartCardSkeleton — `components/dashboard/ChartCardSkeleton.tsx`
 
-In-place loading stand-in for a chart card (`title` skeleton + `h-[220px]` plot). Used while `fetchDashboardCharts` is pending.
+In-place loading stand-in for a chart card (`title` skeleton + `h-[220px]` plot). Used while each chart/insights fetch is pending.
 
 ### DashboardPageSkeleton — `components/layout/DashboardPageSkeleton.tsx`
 

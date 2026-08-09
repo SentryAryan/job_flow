@@ -1,0 +1,27 @@
+# Job Flow — local / self-host parity with the production Dockerfile.
+# Render uses Dockerfile + render.yaml directly (not this Compose file).
+#
+# Usage:
+#   1. Ensure public NEXT_PUBLIC_* vars are available for Compose interpolation
+#      (copy them into a `.env` next to this file, or export in your shell).
+#   2. Keep secrets in `.env.local` (runtime env_file).
+#   3. docker compose up
+#   4. After code or NEXT_PUBLIC_* changes: docker compose up --build
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_INSFORGE_URL: ${NEXT_PUBLIC_INSFORGE_URL}
+        NEXT_PUBLIC_INSFORGE_ANON_KEY: ${NEXT_PUBLIC_INSFORGE_ANON_KEY}
+        NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: ${NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN}
+        NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-https://us.i.posthog.com}
+        NEXT_PUBLIC_RESEARCH_TIMEOUT_CLAMP: ${NEXT_PUBLIC_RESEARCH_TIMEOUT_CLAMP:-no_clamp}
+        NEXT_PUBLIC_RESEARCH_CLIENT_TIMEOUT_MS: ${NEXT_PUBLIC_RESEARCH_CLIENT_TIMEOUT_MS:-750000}
+    ports:
+      - "${PORT:-3000}:3000"
+    env_file:
+      - .env.local
+    restart: unless-stopped

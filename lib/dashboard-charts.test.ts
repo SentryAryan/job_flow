@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
-    MATCH_BUCKET_RANGES,
-    bucketMatchScores,
-    buildDaySeries,
-    chartYDomainMax,
-    emptyMatchDistribution,
-    isChartSeriesEmpty,
-    parseMatchScore,
+  MATCH_BUCKET_RANGES,
+  bucketMatchScores,
+  buildDaySeries,
+  buildDaySeriesForRange,
+  buildJobsOverTimeFromRows,
+  buildResearchActivityFromRows,
+  chartYDomainMax,
+  countTimestampsByUtcDay,
+  emptyMatchDistribution,
+  isChartSeriesEmpty,
+  parseMatchScore,
 } from "@/lib/dashboard-charts";
 
 describe("buildDaySeries", () => {
@@ -98,5 +102,71 @@ describe("chartYDomainMax", () => {
   it("floors at 4 and follows the series max", () => {
     expect(chartYDomainMax([{ count: 0 }])).toBe(4);
     expect(chartYDomainMax([{ count: 12 }])).toBe(12);
+  });
+});
+
+describe("countTimestampsByUtcDay", () => {
+  it("groups by UTC day and skips invalid", () => {
+    const map = countTimestampsByUtcDay([
+      "2026-08-06T10:00:00.000Z",
+      "2026-08-06T22:00:00.000Z",
+      "2026-08-01T00:00:00.000Z",
+      null,
+      "bad",
+    ]);
+    expect(map.get("2026-08-06")).toBe(2);
+    expect(map.get("2026-08-01")).toBe(1);
+  });
+});
+
+describe("buildDaySeriesForRange", () => {
+  const now = new Date("2026-08-06T15:30:00.000Z");
+
+  it("zero-fills fixed windows", () => {
+    const series = buildDaySeriesForRange(
+      "7d",
+      new Map([["2026-08-06", 2]]),
+      now,
+    );
+    expect(series).toHaveLength(7);
+    expect(series[6]).toEqual({ day: "8/6", count: 2 });
+  });
+
+  it("emits only days with counts for all time", () => {
+    const series = buildDaySeriesForRange(
+      "all",
+      new Map([
+        ["2026-08-06", 3],
+        ["2026-07-01", 1],
+      ]),
+      now,
+    );
+    expect(series).toEqual([
+      { day: "7/1", count: 1 },
+      { day: "8/6", count: 3 },
+    ]);
+  });
+});
+
+describe("buildJobsOverTimeFromRows / buildResearchActivityFromRows", () => {
+  const now = new Date("2026-08-06T12:00:00.000Z");
+
+  it("builds jobs-over-time from found_at list", () => {
+    const series = buildJobsOverTimeFromRows(
+      ["2026-08-06T01:00:00.000Z", "2026-08-05T01:00:00.000Z"],
+      "7d",
+      now,
+    );
+    expect(series.find((p) => p.day === "8/6")!.count).toBe(1);
+    expect(series.find((p) => p.day === "8/5")!.count).toBe(1);
+  });
+
+  it("builds research activity from researched_at list", () => {
+    const series = buildResearchActivityFromRows(
+      ["2026-08-06T11:00:00.000Z"],
+      "7d",
+      now,
+    );
+    expect(series.find((p) => p.day === "8/6")!.count).toBe(1);
   });
 });

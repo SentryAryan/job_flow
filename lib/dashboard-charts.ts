@@ -1,8 +1,13 @@
 /**
- * Dashboard analytics chart series (Feature 17 — PostHog).
+ * Dashboard inventory chart series (Feature 17 — InsForge DB).
+ * Product Insights (PostHog) live in lib/dashboard-insights.ts.
  */
 
 import { authedFetch } from "@/lib/authed-fetch";
+import {
+  type DashboardChartRange,
+  chartRangeWindowDays,
+} from "@/lib/dashboard-range";
 
 export type DaySeriesPoint = {
   day: string;
@@ -20,7 +25,9 @@ export type DashboardChartsData = {
   researchActivity: DaySeriesPoint[];
 };
 
+/** @deprecated Prefer chartRangeWindowDays — kept for empty defaults. */
 export const JOBS_OVER_TIME_DAYS = 30;
+/** @deprecated Prefer chartRangeWindowDays — kept for empty defaults. */
 export const RESEARCH_ACTIVITY_DAYS = 7;
 
 export const MATCH_BUCKET_RANGES = [
@@ -76,6 +83,80 @@ export function buildDaySeries(
   }
 
   return points;
+}
+
+/**
+ * All-time: only days that have counts, sorted ascending by ISO date.
+ * Fixed ranges: zero-filled window via buildDaySeries.
+ */
+export function buildDaySeriesForRange(
+  range: DashboardChartRange,
+  countsByIsoDate: Map<string, number>,
+  now: Date = new Date(),
+): DaySeriesPoint[] {
+  const windowDays = chartRangeWindowDays(range);
+  if (windowDays != null) {
+    return buildDaySeries(windowDays, countsByIsoDate, now);
+  }
+
+  const isos = [...countsByIsoDate.keys()].sort();
+  return isos.map((iso) => {
+    const [y, m, d] = iso.split("-").map(Number);
+    const day = new Date(Date.UTC(y!, m! - 1, d!));
+    return {
+      day: formatChartDayLabel(day),
+      count: countsByIsoDate.get(iso) ?? 0,
+    };
+  });
+}
+
+/** Increment counts for each parseable ISO timestamp (UTC day). */
+export function countTimestampsByUtcDay(
+  isoTimestamps: ReadonlyArray<string | null | undefined>,
+): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const raw of isoTimestamps) {
+    if (raw == null || raw === "") continue;
+    const ms = Date.parse(raw);
+    if (!Number.isFinite(ms)) continue;
+    const iso = toIsoDateUTC(new Date(ms));
+    map.set(iso, (map.get(iso) ?? 0) + 1);
+  }
+  return map;
+}
+
+export function buildJobsOverTimeFromRows(
+  foundAtList: ReadonlyArray<string | null | undefined>,
+  range: DashboardChartRange,
+  now: Date = new Date(),
+): DaySeriesPoint[] {
+  return buildDaySeriesForRange(
+    range,
+    countTimestampsByUtcDay(foundAtList),
+    now,
+  );
+}
+
+export function buildResearchActivityFromRows(
+  researchedAtList: ReadonlyArray<string | null | undefined>,
+  range: DashboardChartRange,
+  now: Date = new Date(),
+): DaySeriesPoint[] {
+  return buildDaySeriesForRange(
+    range,
+    countTimestampsByUtcDay(researchedAtList),
+    now,
+  );
+}
+
+/**
+ * Match histogram for jobs whose found_at is in range (or all).
+ * Pass already date-filtered scores from the API when possible.
+ */
+export function buildMatchDistributionFromScores(
+  scores: ReadonlyArray<unknown>,
+): MatchBucketPoint[] {
+  return bucketMatchScores([...scores]);
 }
 
 export function emptyMatchDistribution(): MatchBucketPoint[] {
@@ -152,27 +233,28 @@ export function chartYDomainMax(series: ReadonlyArray<{ count: number }>): numbe
   return Math.max(4, max);
 }
 
-export type FetchDashboardChartsResult =
-  | { success: true; data: DashboardChartsData }
+export type FetchChartResult<T> =
+  | { success: true; data: T }
   | { success: false; error: string };
 
-/**
- * Client fetch for GET /api/dashboard/charts (Bearer JWT via authedFetch).
- */
-export async function fetchDashboardCharts(): Promise<FetchDashboardChartsResult> {
+async function fetchChartEndpoint<T>(
+  path: string,
+  range: DashboardChartRange,
+): Promise<FetchChartResult<T>> {
   try {
-    const response = await authedFetch("/api/dashboard/charts", {
+    const qs = new URLSearchParams({ range });
+    const response = await authedFetch(`${path}?${qs.toString()}`, {
       method: "GET",
       cache: "no-store",
     });
 
     const payload = (await response.json()) as {
       success?: boolean;
-      data?: DashboardChartsData;
+      data?: T;
       error?: string | null;
     };
 
-    if (!response.ok || !payload.success || !payload.data) {
+    if (!response.ok || !payload.success || payload.data === undefined) {
       return {
         success: false,
         error: payload.error ?? "Could not load charts. Please try again.",
@@ -186,6 +268,33 @@ export async function fetchDashboardCharts(): Promise<FetchDashboardChartsResult
       error: "Could not load charts. Please try again.",
     };
   }
+}
+
+export function fetchJobsOverTimeChart(
+  range: DashboardChartRange,
+): Promise<FetchChartResult<DaySeriesPoint[]>> {
+  return fetchChartEndpoint(
+    "/api/dashboard/charts/jobs-over-time",
+    range,
+  );
+}
+
+export function fetchMatchDistributionChart(
+  range: DashboardChartRange,
+): Promise<FetchChartResult<MatchBucketPoint[]>> {
+  return fetchChartEndpoint(
+    "/api/dashboard/charts/match-distribution",
+    range,
+  );
+}
+
+export function fetchResearchActivityChart(
+  range: DashboardChartRange,
+): Promise<FetchChartResult<DaySeriesPoint[]>> {
+  return fetchChartEndpoint(
+    "/api/dashboard/charts/research-activity",
+    range,
+  );
 }
 
 /** Normalize PostHog day cell (Date / string) to YYYY-MM-DD. */
