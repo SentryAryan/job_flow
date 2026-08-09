@@ -13,11 +13,14 @@ import type { Profile, WorkExperienceRole } from "@/types";
 const MAX_RESUME_BYTES = 5 * 1024 * 1024;
 
 /**
- * Per-attempt budget for profiles select. InsForge ap-southeast can 504 / cold-start
- * well past the old 12s client abort; SDK default is 90s.
+ * Per-attempt budget for profiles select. Keep in sync with (or slightly under)
+ * NEXT_PUBLIC_INSFORGE_TIMEOUT_MS so withTimeout does not abort healthy slow
+ * SDK calls. InsForge ap-southeast can be slow after cold paths / mobile nets.
  */
 const PROFILE_FETCH_TIMEOUT_MS = Number(
-  process.env.NEXT_PUBLIC_PROFILE_FETCH_TIMEOUT_MS ?? 45_000,
+  process.env.NEXT_PUBLIC_PROFILE_FETCH_TIMEOUT_MS ??
+    process.env.NEXT_PUBLIC_INSFORGE_TIMEOUT_MS ??
+    90_000,
 );
 const PROFILE_FETCH_RETRIES = 2;
 const PROFILE_FETCH_RETRY_DELAYS_MS = [600, 1800] as const;
