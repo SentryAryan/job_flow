@@ -298,7 +298,7 @@ const session = await bb.sessions.create({
 
 **Important — Feature 13 awaits the full browse + synthesis in the API route** then returns the dossier. Always `await stagehand.close()` in `finally`. Do not fire-and-forget the Browserbase session.
 
-**Env:** `BROWSERBASE_API_KEY`, `BROWSERBASE_PROJECT_ID` (server-only). Optional clamp: `RESEARCH_TIMEOUT_CLAMP` / `NEXT_PUBLIC_RESEARCH_TIMEOUT_CLAMP` (`clamp` default → Hobby 300s caps; `no_clamp` → long-running / Pro). Budgets: `BROWSERBASE_SESSION_TIMEOUT_SEC`, `RESEARCH_OVERALL_TIMEOUT_MS`, `RESEARCH_GOTO_TIMEOUT_MS`, `RESEARCH_EXTRACT_TIMEOUT_MS`, `NEXT_PUBLIC_RESEARCH_CLIENT_TIMEOUT_MS`, optional `RESEARCH_ROUTE_MAX_DURATION_SEC` when unclamped. Hobby defaults ≈ 285s session / 270s overall / 60s extract / 285s client; `no_clamp` defaults ≈ 780s / 720s / 180s / 750s.
+**Env:** `BROWSERBASE_API_KEY`, `BROWSERBASE_PROJECT_ID` (server-only). Optional clamp: `RESEARCH_TIMEOUT_CLAMP` / `NEXT_PUBLIC_RESEARCH_TIMEOUT_CLAMP` (`clamp` default → Hobby 300s caps; `no_clamp` → long-running Docker/Render / Pro). Budgets: `BROWSERBASE_SESSION_TIMEOUT_SEC`, `RESEARCH_OVERALL_TIMEOUT_MS`, `RESEARCH_GOTO_TIMEOUT_MS`, `RESEARCH_EXTRACT_TIMEOUT_MS`, `NEXT_PUBLIC_RESEARCH_CLIENT_TIMEOUT_MS`, optional `RESEARCH_ROUTE_MAX_DURATION_SEC` when unclamped. Hobby defaults ≈ 285s session / 270s overall / 60s extract / 285s client; `no_clamp` defaults ≈ 780s / 720s / 180s / 750s. Production Docker on Render: see `Dockerfile` + `render.yaml` (`no_clamp` preset).
 
 **Rules:**
 

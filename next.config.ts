@@ -14,6 +14,8 @@ const PDF_TRACE_GLOBS = [
 ] as const;
 
 const nextConfig: NextConfig = {
+  // Smaller Docker/Render images (`node server.js` from `.next/standalone`)
+  output: "standalone",
   serverExternalPackages: ["pdf-parse", "@napi-rs/canvas"],
   outputFileTracingIncludes: {
     "/api/resume/extract": [...PDF_TRACE_GLOBS],

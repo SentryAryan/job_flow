@@ -1,0 +1,71 @@
+# Render Blueprint — Docker web service for Job Flow
+# https://render.com/docs/blueprint-spec
+#
+# Dashboard alternative: New → Web Service → Docker → connect this repo.
+# Set the same env vars below (and NEXT_PUBLIC_* as *build* env vars for Docker).
+
+services:
+  - type: web
+    name: job-flow
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /
+    # Long Company Research requests need a generous idle timeout when available.
+    # Free/starter plans may still sleep; use a paid always-on instance for research.
+
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: APP_ENV
+        value: production
+      - key: RESEARCH_TIMEOUT_CLAMP
+        value: no_clamp
+      - key: NEXT_PUBLIC_RESEARCH_TIMEOUT_CLAMP
+        value: no_clamp
+      - key: RESEARCH_OVERALL_TIMEOUT_MS
+        value: "720000"
+      - key: RESEARCH_EXTRACT_TIMEOUT_MS
+        value: "180000"
+      - key: RESEARCH_GOTO_TIMEOUT_MS
+        value: "60000"
+      - key: NEXT_PUBLIC_RESEARCH_CLIENT_TIMEOUT_MS
+        value: "750000"
+      - key: BROWSERBASE_SESSION_TIMEOUT_SEC
+        value: "780"
+      - key: AI_PROVIDER
+        value: openrouter
+      - key: AI_MODEL
+        value: openrouter/free
+      - key: NEXT_PUBLIC_POSTHOG_HOST
+        value: https://us.i.posthog.com
+
+      # --- secrets / project-specific (set in Render dashboard; do not commit) ---
+      - key: NEXT_PUBLIC_INSFORGE_URL
+        sync: false
+      - key: NEXT_PUBLIC_INSFORGE_ANON_KEY
+        sync: false
+      - key: NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN
+        sync: false
+      - key: OPENROUTER_API_KEYS
+        sync: false
+      # Optional singular alias if you prefer one key over the comma-separated list
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: BYOK_ENCRYPTION_SECRET
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: ADZUNA_APP_ID
+        sync: false
+      - key: ADZUNA_APP_KEY
+        sync: false
+      - key: BROWSERBASE_API_KEY
+        sync: false
+      - key: BROWSERBASE_PROJECT_ID
+        sync: false
+      - key: POSTHOG_PERSONAL_API_KEY
+        sync: false
+      - key: POSTHOG_PROJECT_ID
+        sync: false

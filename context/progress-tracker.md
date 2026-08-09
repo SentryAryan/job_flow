@@ -113,4 +113,4 @@ Update this file after every completed feature. Any AI agent reading this should
 
 ## Notes
 
-*Add notes here as the build progresses — workarounds, patterns, anything that differs from the context files.*
+- **Render Docker deploy** — `output: "standalone"` in `next.config.ts`, multi-stage `Dockerfile`, `.dockerignore`, Blueprint `render.yaml`. Use `RESEARCH_TIMEOUT_CLAMP=no_clamp` (container ignores Vercel `maxDuration`). Pass all `NEXT_PUBLIC_*` as Docker **build** env. Add Render `https://…/callback` to InsForge `allowedRedirectUrls`. Prefer always-on plan for long Company Research. Local smoke: `docker build` with `--build-arg NEXT_PUBLIC_*` then `docker run --env-file .env.local`.

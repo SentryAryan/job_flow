@@ -1,0 +1,40 @@
+# dependencies & build output
+node_modules
+.next
+out
+build
+coverage
+*.tsbuildinfo
+
+# git / IDE / agent
+.git
+.github
+.cursor
+.claude
+.agents
+.vercel
+ECC
+graphify-out
+*.pem
+
+# env secrets (pass via Render dashboard / build args)
+.env
+.env.*
+!.env.sample
+
+# tests & docs noise (keep Dockerfile context small)
+**/*.test.ts
+**/*.test.tsx
+**/__tests__
+vitest.config.ts
+vitest.setup.ts
+
+# misc
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.DS_Store
+README.md
+AGENTS.md
+CLAUDE.md
