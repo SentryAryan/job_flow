@@ -113,4 +113,4 @@ Update this file after every completed feature. Any AI agent reading this should
 
 ## Notes
 
-- **Render profile fetch timeout** — Browser HTTP cache sent `If-None-Match` → InsForge `304 Not Modified`. PostgREST clients treat 304 as failure/`!res.ok`, which surfaced as `fetchProfile` “Request timed out” on Render (not Vercel/local). Fix: `createInsforgeBrowserFetch` (`cache: "no-store"` + 304 retry) wired in `lib/insforge-client.ts`; profile `withTimeout` default raised to 90s to match SDK.
+- **Render profile fetch timeout** — Two causes: (1) Browser HTTP cache `If-None-Match` → InsForge `304` treated as failure by PostgREST clients — fixed with `createInsforgeBrowserFetch` (`cache: "no-store"` + 304 retry). (2) Docker `ARG NEXT_PUBLIC_PROFILE_FETCH_TIMEOUT_MS` with no default inlined as `""` → `Number("") === 0` → instant `withTimeout` “Request timed out” on Render. Fix: `parsePositiveEnvMs` skips empty/invalid values; Dockerfile ARG defaults to `90000`.

@@ -1,10 +1,12 @@
 import { createClient } from "@insforge/sdk";
 
 import { createInsforgeBrowserFetch } from "@/lib/insforge-fetch";
+import { parsePositiveEnvMs } from "@/lib/parse-env-ms";
 
 /** InsForge default is 30s — too short for storage uploads to ap-southeast. */
-const INSFORGE_TIMEOUT_MS = Number(
-  process.env.NEXT_PUBLIC_INSFORGE_TIMEOUT_MS ?? 90_000,
+const INSFORGE_TIMEOUT_MS = parsePositiveEnvMs(
+  [process.env.NEXT_PUBLIC_INSFORGE_TIMEOUT_MS],
+  90_000,
 );
 
 export const insforge = createClient({

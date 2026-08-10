@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { errorMessage, isNotFoundError, isTransientError, withTimeout } from "@/lib/errors";
 import { insforge } from "@/lib/insforge-client";
+import { parsePositiveEnvMs } from "@/lib/parse-env-ms";
 import { getProfileCompletion } from "@/lib/profile-completion";
 import {
     extractStorageObjectKey,
@@ -16,11 +17,16 @@ const MAX_RESUME_BYTES = 5 * 1024 * 1024;
  * Per-attempt budget for profiles select. Keep in sync with (or slightly under)
  * NEXT_PUBLIC_INSFORGE_TIMEOUT_MS so withTimeout does not abort healthy slow
  * SDK calls. InsForge ap-southeast can be slow after cold paths / mobile nets.
+ *
+ * Skip empty env strings — Docker/Render often inlines `ARG` without a value as
+ * `""`, and `Number("") === 0` causes an immediate timeout.
  */
-const PROFILE_FETCH_TIMEOUT_MS = Number(
-  process.env.NEXT_PUBLIC_PROFILE_FETCH_TIMEOUT_MS ??
-    process.env.NEXT_PUBLIC_INSFORGE_TIMEOUT_MS ??
-    90_000,
+const PROFILE_FETCH_TIMEOUT_MS = parsePositiveEnvMs(
+  [
+    process.env.NEXT_PUBLIC_PROFILE_FETCH_TIMEOUT_MS,
+    process.env.NEXT_PUBLIC_INSFORGE_TIMEOUT_MS,
+  ],
+  90_000,
 );
 const PROFILE_FETCH_RETRIES = 2;
 const PROFILE_FETCH_RETRY_DELAYS_MS = [600, 1800] as const;

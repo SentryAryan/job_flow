@@ -1,13 +1,17 @@
 import { createClient } from "@insforge/sdk";
 
+import { parsePositiveEnvMs } from "@/lib/parse-env-ms";
+
 /**
  * Server InsForge client timeout (ms). Default SDK 30s is too short for
  * ap-southeast auth + DB; align with browser client unless overridden.
  */
-export const INSFORGE_SERVER_TIMEOUT_MS = Number(
-  process.env.INSFORGE_SERVER_TIMEOUT_MS ??
-    process.env.NEXT_PUBLIC_INSFORGE_TIMEOUT_MS ??
-    60_000,
+export const INSFORGE_SERVER_TIMEOUT_MS = parsePositiveEnvMs(
+  [
+    process.env.INSFORGE_SERVER_TIMEOUT_MS,
+    process.env.NEXT_PUBLIC_INSFORGE_TIMEOUT_MS,
+  ],
+  60_000,
 );
 
 /**
